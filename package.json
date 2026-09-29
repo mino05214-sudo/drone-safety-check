@@ -1,0 +1,21 @@
+{
+  "name": "drone-safety-checklist",
+  "version": "1.0.0",
+  "description": "드론 안전 체크 및 공역 정보 조회 웹 애플리케이션",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "drone",
+    "safety",
+    "airspace",
+    "vworld"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {}
+}

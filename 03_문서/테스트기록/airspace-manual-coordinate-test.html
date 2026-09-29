@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🚁 수동 좌표 공역 판정 테스트 (STEP 3-7)</title>
+
+  <!-- Turf.js v7 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #f4f6f9;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --success: #16a34a;
+      --accent: #4f46e5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 16px;
+      line-height: 1.5;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+      border: 1px solid var(--border-color);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 8px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button.btn-primary {
+      background-color: var(--primary);
+      color: white;
+      width: 100%;
+      padding: 13px;
+      font-size: 16px;
+    }
+
+    button.btn-primary:hover {
+      background-color: #1d4ed8;
+    }
+
+    button.btn-secondary {
+      background-color: #e2e8f0;
+      color: #334155;
+      font-size: 13px;
+    }
+
+    button.btn-secondary:hover {
+      background-color: #cbd5e1;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 15px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #f8fafc;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, input[type="number"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #ffffff;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      border: 1px solid #edf2f7;
+    }
+
+    .accuracy-alert {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .acc-good { background: #dcfce7; color: #166534; }
+    .acc-warning { background: #fef3c7; color: #92400e; }
+    .acc-danger { background: #fee2e2; color: #991b1b; }
+
+    .hero-box {
+      padding: 16px;
+      border-radius: 10px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .hero-safe { background: #dcfce7; border: 1px solid #86efac; color: #14532d; }
+    .hero-warning { background: #fef3c7; border: 1px solid #fde047; color: #713f12; }
+    .hero-danger { background: #fee2e2; border: 1px solid #fca5a5; color: #7f1d1d; }
+
+    .hero-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .layer-card {
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #f8fafc;
+      margin-bottom: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .layer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .badge-included {
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .badge-excluded {
+      background: #dcfce7;
+      color: #15803d;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .badge-error {
+      background: #fef2f2;
+      color: #991b1b;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .prop-box {
+      margin-top: 8px;
+      background: #ffffff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 13px;
+    }
+
+    .disclaimer {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #f1f5f9;
+      padding: 10px;
+      border-radius: 6px;
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .summary-table th, .summary-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+      text-align: left;
+    }
+
+    .summary-table th {
+      background-color: #f1f5f9;
+    }
+
+    code {
+      background: #e2e8f0;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>🚁 수동 좌표 공역 판정 테스트</h1>
+  </header>
+
+  <!-- 1. GPS 현재 위치 영역 (수동 테스트와 완전 분리) -->
+  <div class="card">
+    <div class="card-title">📍 GPS 현재 위치 (참고용)</div>
+    <button class="btn-secondary" style="width: 100%; margin-bottom: 10px;" onclick="fetchCurrentGps()">
+      📍 현재 GPS 가져오기
+    </button>
+    <div class="info-grid">
+      <div><strong>위도:</strong> <span id="gpsLat">-</span></div>
+      <div><strong>경도:</strong> <span id="gpsLon">-</span></div>
+      <div style="grid-column: span 2;"><strong>GPS 정확도:</strong> <span id="gpsAcc">-</span></div>
+    </div>
+    <div id="gpsAccAlert" style="display: none;"></div>
+  </div>
+
+  <!-- 2. 수동 좌표 테스트 영역 -->
+  <div class="card">
+    <div class="card-title">🧪 테스트 좌표 직접 입력</div>
+
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="setPreset(37.5665, 126.9780)">[서울시청 예시]</button>
+      <button class="btn-secondary" onclick="setPreset(36.9910, 127.9259)">[충주 예시]</button>
+      <button class="btn-secondary" onclick="setPreset(37.5400, 126.9800)">[기본값 37.54, 126.98]</button>
+    </div>
+
+    <div class="form-group">
+      <label for="inputLat">위도 (Latitude: -90 ~ 90)</label>
+      <input type="number" id="inputLat" step="any" value="37.540000" placeholder="예: 37.540000">
+    </div>
+
+    <div class="form-group">
+      <label for="inputLon">경도 (Longitude: -180 ~ 180)</label>
+      <input type="number" id="inputLon" step="any" value="126.980000" placeholder="예: 126.980000">
+    </div>
+
+    <div id="validationError" class="error-msg" style="display: none;"></div>
+
+    <button id="btnInspect" class="btn-primary" style="margin-top: 10px;" onclick="runManualCoordinateTest()">
+      🔍 이 좌표로 공역 검사
+    </button>
+    <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px; text-align: center;">
+      ※ 예시 좌표는 테스트용이며 사용자의 실제 위치가 아닙니다.
+    </div>
+  </div>
+
+  <!-- 3. 검사 좌표 및 대표 판정 결과 -->
+  <div class="card" id="cardResult" style="display: none;">
+    <div class="card-title">🚨 대표 판정 결과</div>
+    
+    <div style="margin-bottom: 10px; font-size: 14px;">
+      <strong>📍 검사 좌표:</strong> 
+      위도 <code id="resLat"></code>, 경도 <code id="resLon"></code>
+    </div>
+
+    <div id="heroBox" class="hero-box hero-safe">
+      <div class="hero-title" id="heroTitle">검사 준비</div>
+      <div id="heroDesc">좌표 검사를 진행하세요.</div>
+    </div>
+
+    <div class="disclaimer">
+      ※ 위 우선순위는 앱 화면에서 대표 위험도를 표시하기 위한 내부 표시 순서이며 법적 판단 기준이 아닙니다. 실제 비행 가능 여부는 <strong>공식 드론원스톱 민원서비스</strong>를 이용하세요.
+    </div>
+  </div>
+
+  <!-- 4. 공역별 상세 결과 -->
+  <div class="card" id="cardLayers" style="display: none;">
+    <div class="card-title">🧩 5개 공역별 상세 판정</div>
+    <div id="layerList"></div>
+  </div>
+
+  <!-- 5. 종합 테스트 결과 요약표 -->
+  <div class="card">
+    <div class="card-title">📋 테스트 결과 요약</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>항목</th>
+          <th>결과</th>
+          <th>Feature 수</th>
+          <th>포함 수</th>
+          <th>응답시간</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>좌표 검증</td>
+          <td id="sumValid">⚪ 대기</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+        <tr>
+          <td>🔵 초경량비행장치공역 (lt_c_aisuac)</td>
+          <td id="sum_uac">⚪ 대기</td>
+          <td id="sum_uac_feat">-</td>
+          <td id="sum_uac_inc">-</td>
+          <td id="sum_uac_time">-</td>
+        </tr>
+        <tr>
+          <td>🔴 비행금지구역 (lt_c_aisprhc)</td>
+          <td id="sum_prohibited">⚪ 대기</td>
+          <td id="sum_prh_feat">-</td>
+          <td id="sum_prh_inc">-</td>
+          <td id="sum_prh_time">-</td>
+        </tr>
+        <tr>
+          <td>🟠 비행제한구역 (lt_c_aisresc)</td>
+          <td id="sum_restricted">⚪ 대기</td>
+          <td id="sum_res_feat">-</td>
+          <td id="sum_res_inc">-</td>
+          <td id="sum_res_time">-</td>
+        </tr>
+        <tr>
+          <td>🟣 임시비행금지공역 (lt_c_aistemp)</td>
+          <td id="sum_temporary">⚪ 대기</td>
+          <td id="sum_tmp_feat">-</td>
+          <td id="sum_tmp_inc">-</td>
+          <td id="sum_tmp_time">-</td>
+        </tr>
+        <tr>
+          <td>🟡 관제권 (lt_c_aisctrc)</td>
+          <td id="sum_control">⚪ 대기</td>
+          <td id="sum_ctr_feat">-</td>
+          <td id="sum_ctr_inc">-</td>
+          <td id="sum_ctr_time">-</td>
+        </tr>
+        <tr>
+          <td>공간 판정 (Turf.js)</td>
+          <td id="sumTurf" colspan="4">⚪ 대기</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // ============================================================
+    // 설정 및 레이어 정의
+    // ============================================================
+    const VWORLD_KEY = "AD89B886-AE05-46EE-8FD1-DDF31E54FF75";
+    const VWORLD_DOMAIN = "localhost";
+    const PROXY_URL = "/api/wfs";
+
+    // 우선순위 정렬 (1: 비행금지, 2: 임시금지, 3: 비행제한, 4: 관제권, 5: 초경량)
+    const AIRSPACE_LAYERS = [
+      {
+        key: "prohibited",
+        sumPrefix: "prh",
+        typename: "lt_c_aisprhc",
+        name: "비행금지구역",
+        icon: "🔴",
+        priority: 1,
+        propFields: ["prh_lbl_1", "prh_lbl_2", "prh_lbl_3", "prh_lbl_4", "prh_typ"]
+      },
+      {
+        key: "temporary",
+        sumPrefix: "tmp",
+        typename: "lt_c_aistemp",
+        name: "임시비행금지공역",
+        icon: "🟣",
+        priority: 2,
+        propFields: ["tmp_lbl_1", "tmp_lbl_2", "tmp_lbl_3"]
+      },
+      {
+        key: "restricted",
+        sumPrefix: "res",
+        typename: "lt_c_aisresc",
+        name: "비행제한구역",
+        icon: "🟠",
+        priority: 3,
+        propFields: ["res_lbl_1", "res_lbl_2", "res_lbl_3"]
+      },
+      {
+        key: "control",
+        sumPrefix: "ctr",
+        typename: "lt_c_aisctrc",
+        name: "관제권",
+        icon: "🟡",
+        priority: 4,
+        propFields: ["ctr_lbl_1", "ctr_lbl_2", "ctr_lbl_3"]
+      },
+      {
+        key: "uac",
+        sumPrefix: "uac",
+        typename: "lt_c_aisuac",
+        name: "초경량비행장치공역",
+        icon: "🔵",
+        priority: 5,
+        propFields: ["uac_lbl_1", "uac_lbl_2", "uac_lbl_3"]
+      }
+    ];
+
+    // ============================================================
+    // 1. 프리셋 입력 및 GPS 독립 획득
+    // ============================================================
+    function setPreset(lat, lon) {
+      document.getElementById("inputLat").value = lat.toFixed(6);
+      document.getElementById("inputLon").value = lon.toFixed(6);
+      document.getElementById("validationError").style.display = "none";
+      // 프리셋 클릭 시 자동 검사 실행
+      runManualCoordinateTest();
+    }
+
+    function fetchCurrentGps() {
+      if (!navigator.geolocation) {
+        alert("이 브라우저는 Geolocation을 지원하지 않습니다.");
+        return;
+      }
+
+      document.getElementById("gpsLat").innerText = "측정 중...";
+      document.getElementById("gpsLon").innerText = "측정 중...";
+      document.getElementById("gpsAcc").innerText = "측정 중...";
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+
+          document.getElementById("gpsLat").innerText = lat.toFixed(6);
+          document.getElementById("gpsLon").innerText = lon.toFixed(6);
+          document.getElementById("gpsAcc").innerText = `약 ${Math.round(acc)}m`;
+
+          // GPS 정확도 경고 표출
+          const alertBox = document.getElementById("gpsAccAlert");
+          alertBox.style.display = "block";
+
+          if (acc <= 50) {
+            alertBox.className = "accuracy-alert acc-good";
+            alertBox.innerText = "🟢 GPS 정확도 양호 (≤50m)";
+          } else if (acc <= 200) {
+            alertBox.className = "accuracy-alert acc-warning";
+            alertBox.innerText = "🟡 GPS 정확도 주의 (50m ~ 200m)";
+          } else {
+            alertBox.className = "accuracy-alert acc-danger";
+            alertBox.innerText = "🔴 GPS 정확도가 낮아 현재 위치 기반 공역 판정을 신뢰하기 어렵습니다. (※ 기술적 신뢰도 경고 기준)";
+          }
+        },
+        (err) => {
+          document.getElementById("gpsLat").innerText = "실패";
+          document.getElementById("gpsLon").innerText = "실패";
+          document.getElementById("gpsAcc").innerText = err.message;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    // ============================================================
+    // 2. 수동 좌표 검사 메인 로직
+    // ============================================================
+    async function runManualCoordinateTest() {
+      const errBox = document.getElementById("validationError");
+      errBox.style.display = "none";
+
+      const latVal = parseFloat(document.getElementById("inputLat").value);
+      const lonVal = parseFloat(document.getElementById("inputLon").value);
+
+      // 좌표 범위 검증 (-90~90, -180~180)
+      if (isNaN(latVal) || isNaN(lonVal) || latVal < -90 || latVal > 90 || lonVal < -180 || lonVal > 180) {
+        errBox.innerText = "⚠️ 올바른 위도(-90~90)/경도(-180~180)를 입력해주세요.";
+        errBox.style.display = "block";
+        document.getElementById("sumValid").innerText = "❌ 실패";
+        return;
+      }
+
+      document.getElementById("sumValid").innerText = "✅ 검증 성공";
+
+      console.log("🚁 STEP 3-7 수동 좌표 공역 검사 시작");
+      console.log(`📍 latitude: ${latVal}`);
+      console.log(`📍 longitude: ${lonVal}`);
+
+      const btn = document.getElementById("btnInspect");
+      btn.disabled = true;
+      btn.innerText = "⏳ WFS 수신 및 판정 중...";
+
+      // 요약표 초기화
+      AIRSPACE_LAYERS.forEach(l => {
+        document.getElementById(`sum_${l.key}`).innerText = "⏳ 요청 중";
+        document.getElementById(`sum_${l.sumPrefix}_feat`).innerText = "-";
+        document.getElementById(`sum_${l.sumPrefix}_inc`).innerText = "-";
+        document.getElementById(`sum_${l.sumPrefix}_time`).innerText = "-";
+      });
+      document.getElementById("sumTurf").innerText = "⏳ 처리 중";
+
+      // 0.2 범위 BBOX 생성
+      const minLon = (lonVal - 0.2).toFixed(4);
+      const minLat = (latVal - 0.2).toFixed(4);
+      const maxLon = (lonVal + 0.2).toFixed(4);
+      const maxLat = (latVal + 0.2).toFixed(4);
+      const bboxStr = `${minLon},${minLat},${maxLon},${maxLat}`;
+
+      const targetPoint = turf.point([lonVal, latVal]);
+
+      // 5개 레이어 병렬 요청
+      const promises = AIRSPACE_LAYERS.map(layer => fetchAndAnalyzeLayer(layer, bboxStr, targetPoint));
+      const results = await Promise.all(promises);
+
+      console.log("🎉 5개 레이어 분석 완료");
+      document.getElementById("sumTurf").innerText = "✅ Turf.js Point-in-Polygon 완료";
+
+      btn.disabled = false;
+      btn.innerText = "🔍 이 좌표로 공역 검사";
+
+      // 결과 UI 표출
+      renderResults(latVal, lonVal, results);
+    }
+
+    // 단일 WFS 레이어 수신 및 Turf 분석
+    async function fetchAndAnalyzeLayer(layer, bboxStr, targetPoint) {
+      console.log(`📡 ${layer.typename} 요청 시작`);
+
+      const params = new URLSearchParams({
+        SERVICE: "WFS",
+        VERSION: "1.1.0",
+        REQUEST: "GetFeature",
+        TYPENAME: layer.typename,
+        OUTPUTFORMAT: "application/json",
+        SRSNAME: "EPSG:4326",
+        BBOX: bboxStr,
+        KEY: VWORLD_KEY.trim(),
+        DOMAIN: VWORLD_DOMAIN
+      });
+
+      const url = `${PROXY_URL}?${params.toString()}`;
+      const startTime = performance.now();
+
+      try {
+        const response = await fetch(url);
+        const elapsed = Math.round(performance.now() - startTime);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const features = data.features || [];
+        const totalCount = features.length;
+
+        console.log(`✅ ${layer.typename}\nFeature 수: ${totalCount}\n응답시간: ${elapsed}ms`);
+
+        // 요약표 반영
+        document.getElementById(`sum_${layer.key}`).innerText = "✅ 성공";
+        document.getElementById(`sum_${layer.sumPrefix}_feat`).innerText = `${totalCount}개`;
+        document.getElementById(`sum_${layer.sumPrefix}_time`).innerText = `${elapsed}ms`;
+
+        // Turf Point-in-Polygon 검사
+        const matchedFeatures = [];
+        features.forEach(feat => {
+          if (!feat.geometry) return;
+          try {
+            if (turf.booleanPointInPolygon(targetPoint, feat)) {
+              matchedFeatures.push(feat);
+            }
+          } catch (tErr) {
+            console.error(`Turf geometry error in ${layer.typename}:`, tErr);
+          }
+        });
+
+        document.getElementById(`sum_${layer.sumPrefix}_inc`).innerText = `${matchedFeatures.length}개`;
+
+        return {
+          layer: layer,
+          success: true,
+          elapsed: elapsed,
+          totalFeatures: totalCount,
+          isIncluded: matchedFeatures.length > 0,
+          matchedFeatures: matchedFeatures
+        };
+
+      } catch (err) {
+        console.error(`❌ ${layer.typename} 수신 실패:`, err.message);
+        document.getElementById(`sum_${layer.key}`).innerText = "❌ 실패";
+        document.getElementById(`sum_${layer.sumPrefix}_feat`).innerText = "ERR";
+        document.getElementById(`sum_${layer.sumPrefix}_inc`).innerText = "ERR";
+        document.getElementById(`sum_${layer.sumPrefix}_time`).innerText = "-";
+
+        return {
+          layer: layer,
+          success: false,
+          error: err.message,
+          totalFeatures: 0,
+          isIncluded: false,
+          matchedFeatures: []
+        };
+      }
+    }
+
+    // ============================================================
+    // 3. UI 결과 출력
+    // ============================================================
+    function renderResults(lat, lon, results) {
+      document.getElementById("cardResult").style.display = "block";
+      document.getElementById("cardLayers").style.display = "block";
+
+      document.getElementById("resLat").innerText = lat.toFixed(6);
+      document.getElementById("resLon").innerText = lon.toFixed(6);
+
+      const heroBox = document.getElementById("heroBox");
+      const heroTitle = document.getElementById("heroTitle");
+      const heroDesc = document.getElementById("heroDesc");
+
+      // 1. 대표 판정 (우선순위에 따른 첫 번째 포함 항목)
+      const includedResults = results.filter(r => r.isIncluded).sort((a, b) => a.layer.priority - b.layer.priority);
+
+      if (includedResults.length > 0) {
+        const top = includedResults[0];
+        if (top.layer.priority === 1) { // 비행금지구역
+          heroBox.className = "hero-box hero-danger";
+          heroTitle.innerText = `🚫 ${top.layer.name} 포함`;
+          heroDesc.innerText = `입력한 좌표가 최고 위험 등급인 [${top.layer.name}] 내부입니다.`;
+        } else if (top.layer.priority <= 3) { // 임시비행금지 / 비행제한
+          heroBox.className = "hero-box hero-danger";
+          heroTitle.innerText = `⚠️ ${top.layer.name} 포함`;
+          heroDesc.innerText = `입력한 좌표가 [${top.layer.name}] 구역 내부에 포함되어 있습니다.`;
+        } else { // 관제권 / 초경량
+          heroBox.className = "hero-box hero-warning";
+          heroTitle.innerText = `⚠️ ${top.layer.name} 포함`;
+          heroDesc.innerText = `입력한 좌표가 [${top.layer.name}] 영향권 내부입니다.`;
+        }
+      } else {
+        heroBox.className = "hero-box hero-safe";
+        heroTitle.innerText = `🎉 5개 주요 공역 미포함`;
+        heroDesc.innerText = `입력한 좌표 주변 5개 WFS 데이터 기준, 포함된 공역이 없습니다.`;
+      }
+
+      // 콘솔 판정 결과 출력
+      console.log("📊 대표 판정 결과:", heroTitle.innerText);
+
+      // 2. 공역별 상세 5개 목록 표출 (항상 5개 표출)
+      const layerList = document.getElementById("layerList");
+      let html = "";
+
+      // 화면 출력 순서 (초경량, 비행금지, 비행제한, 임시금지, 관제권 순)
+      const displayOrder = ["uac", "prohibited", "restricted", "temporary", "control"];
+      const displaySorted = results.slice().sort((a, b) => {
+        return displayOrder.indexOf(a.layer.key) - displayOrder.indexOf(b.layer.key);
+      });
+
+      displaySorted.forEach(item => {
+        const layer = item.layer;
+        html += `<div class="layer-card">`;
+        html += `  <div class="layer-header">`;
+        html += `    <span>${layer.icon} ${layer.name}</span>`;
+
+        if (!item.success) {
+          html += `    <span class="badge-error">❌ 수신 실패</span>`;
+        } else if (item.isIncluded) {
+          html += `    <span class="badge-included">🚫 포함 (${item.matchedFeatures.length}개 Feature)</span>`;
+        } else {
+          html += `    <span class="badge-excluded">✅ 미포함</span>`;
+        }
+        html += `  </div>`;
+
+        // 상세 정보
+        html += `  <div style="font-size: 13px; margin-top: 6px; color: #475569;">`;
+        if (item.success) {
+          html += `    • WFS 수신 성공 (전체 Feature 수: ${item.totalFeatures}개, 응답: ${item.elapsed}ms)`;
+
+          if (item.isIncluded) {
+            item.matchedFeatures.forEach((feat, idx) => {
+              html += `    <div class="prop-box">`;
+              html += `      <strong>감지된 Feature #${idx + 1} 속성:</strong><br>`;
+
+              let pCount = 0;
+              if (feat.properties) {
+                // 지정된 주요 필드 우선 표출
+                layer.propFields.forEach(f => {
+                  if (feat.properties[f]) {
+                    html += `      - ${f}: <code>${feat.properties[f]}</code><br>`;
+                    pCount++;
+                  }
+                });
+
+                // 없으면 기타속성 표출
+                if (pCount === 0) {
+                  for (let k in feat.properties) {
+                    if (feat.properties[k] && typeof feat.properties[k] !== 'object') {
+                      html += `      - ${k}: <code>${feat.properties[k]}</code><br>`;
+                      pCount++;
+                      if (pCount >= 3) break;
+                    }
+                  }
+                }
+              }
+
+              if (pCount === 0) {
+                html += `      - <i>상세 정보 없음</i>`;
+              }
+              html += `    </div>`;
+            });
+          }
+        } else {
+          html += `    <span style="color: #991b1b;">수신 오류 원인: ${item.error}</span>`;
+        }
+        html += `  </div>`;
+        html += `</div>`;
+      });
+
+      layerList.innerHTML = html;
+    }
+
+    // 초기화 및 첫 자동 검사 (기본 37.54, 126.98)
+    window.addEventListener("DOMContentLoaded", () => {
+      runManualCoordinateTest();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>🚁 VWorld 5개 공역 WFS 통합 테스트</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f6f8;
+      color: #222;
+    }
+
+    h1 {
+      font-size: 22px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #222;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #444;
+    }
+
+    .box {
+      background: white;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+    }
+
+    .loading {
+      color: #555;
+    }
+
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+
+    .error {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+
+    .layer {
+      border-top: 1px solid #eee;
+      padding: 12px 0;
+    }
+
+    .layer:first-child {
+      border-top: none;
+    }
+
+    pre {
+      background: #f1f1f1;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      background: #e0f2fe;
+      color: #0369a1;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🚁 VWorld 5개 공역 WFS 통합 테스트</h1>
+
+<div class="box">
+  <div class="badge" id="modeBadge">모드: 확인 중...</div>
+
+  <p>
+    이 테스트는 VWorld WFS 5개 레이어를
+    <strong>동시에 요청</strong>하고,
+    각각 정상적으로 구분되는지 확인합니다.
+  </p>
+
+  <p>
+    🔵 초경량비행장치공역<br>
+    🔴 비행금지구역<br>
+    🟠 비행제한구역<br>
+    🟣 임시비행금지공역<br>
+    🟡 관제권
+  </p>
+
+  <button onclick="runTest()">
+    ▶ 5개 레이어 동시 검사
+  </button>
+
+</div>
+
+<div id="result"></div>
+
+
+<script>
+
+// ============================================================
+// 1. VWorld 설정
+// ============================================================
+
+const VWORLD_KEY = "AD89B886-AE05-46EE-8FD1-DDF31E54FF75";
+const VWORLD_DOMAIN = "localhost";
+
+// ============================================================
+// 2. 테스트할 5개 레이어
+// ============================================================
+
+const AIRSPACE_LAYERS = [
+  {
+    key: "uac",
+    typename: "lt_c_aisuac",
+    name: "초경량비행장치공역",
+    icon: "🔵",
+    priority: 40
+  },
+  {
+    key: "prohibited",
+    typename: "lt_c_aisprhc",
+    name: "비행금지구역",
+    icon: "🔴",
+    priority: 100
+  },
+  {
+    key: "restricted",
+    typename: "lt_c_aisresc",
+    name: "비행제한구역",
+    icon: "🟠",
+    priority: 80
+  },
+  {
+    key: "temporary",
+    typename: "lt_c_aistemp",
+    name: "임시비행금지공역",
+    icon: "🟣",
+    priority: 90
+  },
+  {
+    key: "control",
+    typename: "lt_c_aisctrc",
+    name: "관제권",
+    icon: "🟡",
+    priority: 60
+  }
+];
+
+// 서울 주변 좌표 범위
+const TEST_BBOX = "126.8,37.4,127.2,37.7";
+
+// 환경 감지 (로컬 서버 vs 직접 호출)
+const isLocalServer = window.location.protocol.startsWith('http') && 
+                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+document.getElementById("modeBadge").innerText = isLocalServer 
+  ? "연결: 로컬 프록시 지원 모드 (CORS 우회 적용)"
+  : "연결: 브라우저 직접 요청 모드";
+
+// ============================================================
+// 4. WFS URL 생성 함수
+// ============================================================
+
+function createWFSUrl(typename, useProxy = true) {
+  const params = new URLSearchParams({
+    SERVICE: "WFS",
+    VERSION: "1.1.0",
+    REQUEST: "GetFeature",
+    TYPENAME: typename,
+    OUTPUTFORMAT: "application/json",
+    SRSNAME: "EPSG:4326",
+    BBOX: TEST_BBOX,
+    KEY: VWORLD_KEY.trim(),
+    DOMAIN: VWORLD_DOMAIN
+  });
+
+  if (useProxy && isLocalServer) {
+    return "/api/wfs?" + params.toString();
+  }
+  return "https://api.vworld.kr/req/wfs?" + params.toString();
+}
+
+// ============================================================
+// 5. 하나의 레이어 요청
+// ============================================================
+
+async function fetchLayer(layer) {
+  const startTime = performance.now();
+
+  // 1차 시도: 로컬 프록시 또는 기본 URL
+  let url = createWFSUrl(layer.typename, true);
+
+  try {
+    let response = await fetch(url);
+
+    // 프록시 실패 시 직접 호출 폴백
+    if (!response.ok && isLocalServer) {
+      console.warn(`[${layer.name}] 프록시 응답 실패 (${response.status}), 직접 요청 시도...`);
+      url = createWFSUrl(layer.typename, false);
+      response = await fetch(url);
+    }
+
+    const elapsed = Math.round(performance.now() - startTime);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // VWorld 응답 내 오류 코드 검사 (JSON 안에 에러가 오는 경우)
+    if (data.response && data.response.status === 'ERROR') {
+      throw new Error(data.response.error?.text || 'VWorld API 오류');
+    }
+
+    return {
+      success: true,
+      layer: layer,
+      elapsed: elapsed,
+      featureCount: data.features ? data.features.length : 0,
+      data: data
+    };
+
+  } catch (error) {
+    let errMsg = error.message;
+    if (errMsg.includes('Failed to fetch')) {
+      errMsg = 'CORS 차단 또는 네트워크 연결 실패 (서버 프록시 권장)';
+    }
+
+    return {
+      success: false,
+      layer: layer,
+      error: errMsg
+    };
+  }
+}
+
+// ============================================================
+// 6. 5개 레이어 동시 요청
+// ============================================================
+
+async function fetchAllLayers() {
+  console.log("🚁 5개 WFS 요청 시작");
+  const startTime = performance.now();
+
+  const results = await Promise.all(
+    AIRSPACE_LAYERS.map(layer => fetchLayer(layer))
+  );
+
+  const totalTime = Math.round(performance.now() - startTime);
+
+  return {
+    results: results,
+    totalTime: totalTime
+  };
+}
+
+// ============================================================
+// 7. 결과 출력
+// ============================================================
+
+function displayResults(result) {
+  const container = document.getElementById("result");
+  let html = "";
+
+  html += `
+    <div class="box">
+      <h2>📊 전체 테스트 결과</h2>
+      <p>
+        전체 요청 시간:
+        <strong>${result.totalTime} ms</strong>
+      </p>
+  `;
+
+  let successCount = 0;
+
+  for (const item of result.results) {
+    if (item.success) {
+      successCount++;
+      html += `
+        <div class="layer">
+          <h3>${item.layer.icon} ${item.layer.name}</h3>
+          <p>WFS: <strong>${item.layer.typename}</strong></p>
+          <p class="success">✅ 수신 성공</p>
+          <p>Feature 수: <strong>${item.featureCount}</strong></p>
+          <p>응답 시간: ${item.elapsed} ms</p>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="layer">
+          <h3>${item.layer.icon} ${item.layer.name}</h3>
+          <p>WFS: <strong>${item.layer.typename}</strong></p>
+          <p class="error">❌ 수신 실패</p>
+          <p>오류 원인: <code>${item.error}</code></p>
+        </div>
+      `;
+    }
+  }
+
+  html += `
+      <hr>
+      <h3>${successCount} / ${AIRSPACE_LAYERS.length} 레이어 수신 성공</h3>
+  `;
+
+  if (successCount === AIRSPACE_LAYERS.length) {
+    html += `<p class="success">🎉 5개 레이어 모두 정상 수신했습니다.</p>`;
+  } else {
+    html += `<p class="error">⚠️ 일부 레이어 수신에 실패했습니다.</p>`;
+  }
+
+  html += `</div>`;
+
+  // 레이어 구분 테스트
+  html += `
+    <div class="box">
+      <h2>🧩 레이어 구분 테스트</h2>
+      <pre>
+`;
+
+  for (const item of result.results) {
+    if (item.success) {
+      html += `${item.layer.icon} ${item.layer.name}\n  typename: ${item.layer.typename}\n  features : ${item.featureCount}\n\n`;
+    }
+  }
+
+  html += `</pre>`;
+
+  if (successCount === AIRSPACE_LAYERS.length) {
+    html += `<p class="success">✅ 5개 데이터를 서로 다른 레이어로 정상 구분할 수 있습니다.</p>`;
+  }
+
+  html += `</div>`;
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// 8. 전체 테스트 시작
+// ============================================================
+
+async function runTest() {
+  const container = document.getElementById("result");
+
+  container.innerHTML = `
+    <div class="box">
+      <h2>⏳ 테스트 중...</h2>
+      <p class="loading">
+        VWorld WFS 5개 레이어를 동시에 요청하고 있습니다.
+      </p>
+    </div>
+  `;
+
+  if (!VWORLD_KEY || VWORLD_KEY === "여기에_본인_VWORLD_키") {
+    container.innerHTML = `
+      <div class="box">
+        <h2 class="error">❌ API KEY가 없습니다.</h2>
+        <p>VWORLD_KEY 부분에 본인의 VWorld API 키를 입력하세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const result = await fetchAllLayers();
+    displayResults(result);
+    console.log("5개 레이어 결과:", result);
+  } catch (error) {
+    container.innerHTML = `
+      <div class="box">
+        <h2 class="error">❌ 전체 테스트 실패</h2>
+        <pre>${error.message}</pre>
+      </div>
+    `;
+  }
+}
+</script>
+
+</body>
+</html>

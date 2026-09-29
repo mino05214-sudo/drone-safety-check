@@ -1,0 +1,67 @@
+@echo off
+chcp 65001 >nul
+title 드론 안전 체크 서비스 실행기
+cd /d "%~dp0"
+
+echo ========================================================
+echo   [드론 안전 체크] 독립 실행기
+echo ========================================================
+echo.
+
+:: 1. Node.js 설치 확인
+where node >nul 2>&1
+if errorlevel 1 (
+    echo [오류] Node.js가 설치되어 있지 않거나 환경변수에 등록되지 않았습니다.
+    echo.
+    echo 1. https://nodejs.org 에 접속하여 Node.js LTS 버전을 다운로드하여 설치해주세요.
+    echo 2. 설치 완료 후 start.bat을 다시 실행해주세요.
+    echo.
+    echo 창을 닫으려면 아무 키나 누르세요...
+    pause >nul
+    exit /b 1
+)
+
+:: 2. 5500 포트 실행 여부 확인
+netstat -ano | findstr /C:":5500 " | findstr "LISTENING" >nul 2>&1
+if not errorlevel 1 (
+    echo [안내] 5500 포트에서 서버가 이미 실행 중입니다.
+    echo [안내] 브라우저를 엽니다: http://localhost:5500
+    start http://localhost:5500
+    ping 127.0.0.1 -n 3 >nul
+    exit /b 0
+)
+
+:: 3. server.js 백그라운드 콘솔 실행
+echo [실행] 백그라운드 서버[포트 5500]를 구동합니다...
+start "드론 안전 체크 서버 [Port 5500]" cmd /k "chcp 65001 >nul & node server.js"
+
+:: 4. 서버 리스닝 대기 (최대 5초)
+set /a retry=0
+:wait_loop
+ping 127.0.0.1 -n 2 >nul
+netstat -ano | findstr /C:":5500 " | findstr "LISTENING" >nul 2>&1
+if not errorlevel 1 goto server_ready
+
+set /a retry+=1
+if %retry% lss 5 goto wait_loop
+
+echo.
+echo [경고] 5500 포트 응답 대기 시간이 초과되었습니다.
+echo 별도로 열린 [드론 안전 체크 서버] 창의 메시지를 확인해주세요.
+echo.
+echo 브라우저 접속을 시도합니다...
+start http://localhost:5500
+pause
+exit /b 1
+
+:server_ready
+echo [완료] 서버가 성공적으로 시작되었습니다!
+echo [안내] 브라우저를 엽니다: http://localhost:5500
+start http://localhost:5500
+echo.
+echo ========================================================
+echo  * 서버를 종료하려면 열린 서버 창을 닫거나
+echo    stop.bat을 실행해주세요.
+echo ========================================================
+ping 127.0.0.1 -n 4 >nul
+exit /b 0

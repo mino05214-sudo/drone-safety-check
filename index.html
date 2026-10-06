@@ -1907,48 +1907,53 @@
     const AIRSPACE_LAYERS = [
       {
         key: "prohibited",
+        type: "PROHIBITED",
         typename: "lt_c_aisprhc",
         name: "비행금지구역",
         icon: "🔴",
         color: "#ef4444",
         priority: 1,
-        propFields: ["prh_lbl_1", "prh_lbl_2", "prh_lbl_3", "prh_lbl_4", "prh_typ"]
+        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
         key: "temporary",
+        type: "TEMPORARY",
         typename: "lt_c_aistemp",
         name: "임시비행금지공역",
         icon: "🟣",
         color: "#a855f7",
         priority: 2,
-        propFields: ["tmp_lbl_1", "tmp_lbl_2", "tmp_lbl_3"]
+        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
         key: "restricted",
+        type: "RESTRICTED",
         typename: "lt_c_aisresc",
         name: "비행제한구역",
         icon: "🟠",
         color: "#f97316",
         priority: 3,
-        propFields: ["res_lbl_1", "res_lbl_2", "res_lbl_3"]
+        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
         key: "control",
+        type: "CTR",
         typename: "lt_c_aisctrc",
         name: "관제권",
         icon: "🟡",
         color: "#eab308",
         priority: 4,
-        propFields: ["ctr_lbl_1", "ctr_lbl_2", "ctr_lbl_3"]
+        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
         key: "uac",
+        type: "UAS",
         typename: "lt_c_aisuac",
         name: "초경량비행장치공역",
         icon: "🔵",
         color: "#2563eb",
         priority: 5,
-        propFields: ["uac_lbl_1", "uac_lbl_2", "uac_lbl_3"]
+        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       }
     ];
 
@@ -2265,8 +2270,14 @@
     }
 
     // ============================================================
-    // VWorld WFS 5개 레이어 조회, 캐싱 및 중복/경합 방지
+    // 국토교통부 AIP 정적 GeoJSON (airspace.geojson) 로드 및 관리
+    // (기존 VWorld WFS 코드는 백업/보존)
     // ============================================================
+    const AIRSPACE_GEOJSON_URL = "/data/airspace/airspace.geojson";
+    let staticAirspaceLoaded = false;
+    let staticAirspaceLoadingPromise = null;
+    let rawAirspaceGeoJson = null;
+
     let activeAirspaceBboxKey = null;
     let activeAirspaceController = null;
     let activeAirspacePromise = null;
@@ -2290,174 +2301,141 @@
 
       map.on("click", onMapClick);
 
-      // 위치가 설정되어 있다면 공역 데이터 로드
-      if (locationState.latitude && locationState.longitude) {
-        ensureAirspaceData(initialLat, initialLon);
+      // 정적 공역 데이터 로드 및 지도 렌더링
+      if (staticAirspaceLoaded) {
+        AIRSPACE_LAYERS.forEach(layer => {
+          if (airspaceDataStore[layer.key]) {
+            renderGeoJsonLayer(layer, airspaceDataStore[layer.key]);
+          }
+        });
+        if (locationState.latitude && locationState.longitude) {
+          ensureAirspaceData(initialLat, initialLon);
+        }
+      } else {
+        loadStaticAirspaceData().then(() => {
+          if (locationState.latitude && locationState.longitude) {
+            ensureAirspaceData(initialLat, initialLon);
+          }
+        });
       }
+    }
+
+    // 정적 공역 GeoJSON 로드 (최초 1회 로드, 5대 공역 파티셔닝 및 렌더링)
+    async function loadStaticAirspaceData(forceReload = false) {
+      if (staticAirspaceLoaded && !forceReload) return true;
+      if (staticAirspaceLoadingPromise && !forceReload) return staticAirspaceLoadingPromise;
+
+      const connBadge = document.getElementById("wfsConnBadge");
+      const homeAirspaceStatusEl = document.getElementById("homeAirspaceFetchStatus");
+      if (connBadge) {
+        connBadge.innerText = "🗺 공역 데이터 로드 중...";
+        connBadge.style.background = "#fef3c7";
+        connBadge.style.color = "#b45309";
+      }
+      if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = "🗺 공역 데이터 불러오는 중...";
+
+      staticAirspaceLoadingPromise = (async () => {
+        const startTime = performance.now();
+        try {
+          const res = await fetch(AIRSPACE_GEOJSON_URL);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          rawAirspaceGeoJson = await res.json();
+          const allFeatures = rawAirspaceGeoJson.features || [];
+
+          airspaceState.layerStatus = {};
+          let totalCount = 0;
+
+          AIRSPACE_LAYERS.forEach(layer => {
+            const layerFeatures = allFeatures.filter(f => f.properties && f.properties.type === layer.type);
+            const layerData = {
+              type: "FeatureCollection",
+              features: layerFeatures
+            };
+            airspaceDataStore[layer.key] = layerData;
+            airspaceState.layerStatus[layer.key] = {
+              success: true,
+              featureCount: layerFeatures.length,
+              error: null
+            };
+            totalCount += layerFeatures.length;
+            renderGeoJsonLayer(layer, layerData);
+          });
+
+          staticAirspaceLoaded = true;
+          airspaceState.loaded = true;
+          airspaceState.partialFailure = false;
+          airspaceState.failedLayers = [];
+          airspaceState.lastFetchedAt = Date.now();
+
+          const elapsed = Math.round(performance.now() - startTime);
+          const now = new Date();
+          const pad = (n) => String(n).padStart(2, '0');
+          const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+          const timeStrShort = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+          const fetchTimeEl = document.getElementById("wfsFetchTime");
+          if (fetchTimeEl) fetchTimeEl.innerText = `국토부 AIP 26년 10차 (${totalCount}개 공역) · 로드: ${timeStrShort}`;
+
+          if (connBadge) {
+            connBadge.innerText = `✅ 국토부 AIP ${totalCount}개 로드 완료`;
+            connBadge.style.background = "#d1fae5";
+            connBadge.style.color = "#065f46";
+          }
+          if (homeAirspaceStatusEl) {
+            homeAirspaceStatusEl.innerText = `✅ 국토부 5대 공역 ${totalCount}개 준비 완료 · 로드 ${timeStrShort}`;
+          }
+
+          const failDetailEl = document.getElementById("wfsFailDetail");
+          if (failDetailEl) failDetailEl.style.display = "none";
+
+          console.log(`[Airspace] 정적 GeoJSON 로드 완료: ${totalCount}개 (${elapsed}ms)`);
+          return true;
+        } catch (err) {
+          console.error("[Airspace] 정적 GeoJSON 로드 실패:", err);
+          if (connBadge) {
+            connBadge.innerText = "🔴 공역 로드 실패";
+            connBadge.style.background = "#fee2e2";
+            connBadge.style.color = "#991b1b";
+          }
+          if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = "🔴 공역 데이터 로드 실패";
+          const failDetailEl = document.getElementById("wfsFailDetail");
+          if (failDetailEl) {
+            failDetailEl.style.display = "block";
+            failDetailEl.innerText = `오류: ${err.message}`;
+          }
+          showToast("🔴 공역 데이터 로드 실패: " + err.message);
+          return false;
+        } finally {
+          staticAirspaceLoadingPromise = null;
+        }
+      })();
+
+      return staticAirspaceLoadingPromise;
     }
 
     function reloadAirspaceCurrentArea() {
       const lat = locationState.latitude || airspaceState.latitude;
       const lon = locationState.longitude || airspaceState.longitude;
-      if (!lat || !lon) {
-        showToast("위치를 먼저 지정하세요.");
-        return;
-      }
-      ensureAirspaceData(lat, lon, true);
+      loadStaticAirspaceData(true).then(() => {
+        showToast("공역 데이터 새로고침 완료");
+        if (lat && lon) {
+          judgeCoordinates(lat, lon, airspaceState.isGps, airspaceState.accuracy);
+        }
+      });
     }
 
-    // WFS 조회 (중복 요청 방지, Promise 재사용, AbortController, 실패 시 이전 지도 데이터 제거)
+    // 공역 데이터 준비 및 즉시 Turf.js 판정 실행
     async function ensureAirspaceData(lat, lon, forceReload = false) {
       if (!lat || !lon) return;
 
-      const homeAirspaceStatusEl = document.getElementById("homeAirspaceFetchStatus");
-      const needsRefetch = forceReload || shouldRefetchBBox(lat, lon);
-
-      if (!needsRefetch) {
-        const dist = getDistanceKm(airspaceState.center.latitude, airspaceState.center.longitude, lat, lon).toFixed(1);
-        console.log(`[Airspace] 기존 데이터 재사용 여부 = true (이동 거리: ${dist}km <= 10km)`);
-        showToast("기존 공역 데이터 재사용 (범위 내)");
-        if (homeAirspaceStatusEl) {
-          homeAirspaceStatusEl.innerText = "✅ 기존 데이터 재사용 (범위 내)";
-        }
-        judgeCoordinates(lat, lon, airspaceState.isGps, airspaceState.accuracy);
-        return;
+      if (!staticAirspaceLoaded || forceReload) {
+        await loadStaticAirspaceData(forceReload);
       }
 
-      const bboxObj = calculateBBox(lat, lon);
-      const bboxKey = bboxObj.str;
-
-      // 동일한 BBOX 요청이 이미 진행 중이면 기존 Promise 재사용 (중복 요청 방지)
-      if (activeAirspaceBboxKey === bboxKey && activeAirspacePromise && !forceReload) {
-        console.log(`[Airspace] 동일 BBOX 요청 진행 중 -> 기존 Promise 재사용`);
-        return activeAirspacePromise;
-      }
-
-      // 다른 위치가 새로 요청되면 이전 진행 중 요청 취소
-      if (activeAirspaceController) {
-        console.log(`[Airspace] 이전 WFS 요청 취소 (새 요청 시작)`);
-        activeAirspaceController.abort();
-      }
-
-      activeAirspaceController = new AbortController();
-      activeAirspaceBboxKey = bboxKey;
-      const currentController = activeAirspaceController;
-
-      activeAirspacePromise = (async () => {
-        console.log(`[Airspace] 새 BBOX 조회 시작 = ${bboxKey}`);
-        const connBadge = document.getElementById("wfsConnBadge");
-        if (connBadge) {
-          connBadge.innerText = "🗺 공역 데이터 불러오는 중...";
-          connBadge.style.background = "#fef3c7";
-          connBadge.style.color = "#b45309";
-        }
-        if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = "🗺 공역 데이터 불러오는 중...";
-
-        const totalStart = performance.now();
-        const requests = AIRSPACE_LAYERS.map(layer => fetchAirspaceLayerBBox(layer, bboxKey, currentController.signal));
-        const results = await Promise.all(requests);
-        const totalElapsed = Math.round(performance.now() - totalStart);
-
-        // 요청이 취소되었거나 다른 요청으로 교체된 경우 무시
-        if (currentController.signal.aborted) {
-          console.log(`[Airspace] WFS 요청이 취소되었습니다.`);
-          return;
-        }
-
-        let successCount = 0;
-        const failed = [];
-        airspaceState.layerStatus = {};
-
-        results.forEach(res => {
-          airspaceState.layerStatus[res.layer.key] = {
-            success: res.success,
-            featureCount: res.featureCount,
-            error: res.error || null
-          };
-
-          if (res.success) {
-            successCount++;
-            renderGeoJsonLayer(res.layer, res.data);
-          } else {
-            failed.push(res.layer.name);
-            // 실패 시 지도에서 이전 레이어 제거 및 캐시 초기화 (오래된 잔여 데이터 제거)
-            if (map && airspaceLayerGroups[res.layer.key]) {
-              map.removeLayer(airspaceLayerGroups[res.layer.key]);
-              delete airspaceLayerGroups[res.layer.key];
-            }
-            airspaceDataStore[res.layer.key] = null;
-          }
-        });
-
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const timeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        const timeStrShort = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-        const fetchTimeEl = document.getElementById("wfsFetchTime");
-        if (fetchTimeEl) fetchTimeEl.innerText = `조회 시각: ${timeStr}`;
-        const failDetailEl = document.getElementById("wfsFailDetail");
-
-        if (successCount === AIRSPACE_LAYERS.length) {
-          airspaceState.loaded = true;
-          airspaceState.center = { latitude: lat, longitude: lon };
-          airspaceState.bbox = bboxObj;
-          airspaceState.lastFetchedAt = Date.now();
-          airspaceState.partialFailure = false;
-          airspaceState.failedLayers = [];
-
-          if (connBadge) {
-            connBadge.innerText = "✅ 데이터 조회 완료";
-            connBadge.style.background = "#d1fae5";
-            connBadge.style.color = "#065f46";
-          }
-          if (failDetailEl) failDetailEl.style.display = "none";
-          if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = `✅ 5개 레이어 정상 조회 · 조회 시각 ${timeStrShort}`;
-          showToast(`주변 공역 BBOX 갱신 완료 (${totalElapsed}ms)`);
-        } else if (successCount > 0) {
-          airspaceState.loaded = true;
-          airspaceState.center = { latitude: lat, longitude: lon };
-          airspaceState.bbox = bboxObj;
-          airspaceState.lastFetchedAt = Date.now();
-          airspaceState.partialFailure = true;
-          airspaceState.failedLayers = failed;
-
-          if (connBadge) {
-            connBadge.innerText = "⚠️ 일부 공역 데이터 조회 실패";
-            connBadge.style.background = "#fef3c7";
-            connBadge.style.color = "#b45309";
-          }
-          if (failDetailEl) {
-            failDetailEl.style.display = "block";
-            failDetailEl.innerText = `실패 레이어: ${failed.join(", ")}`;
-          }
-          if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = `⚠️ 일부 공역 조회 실패 (${successCount}/5)`;
-          showToast(`⚠️ 일부 공역 데이터 조회 실패 (${failed.join(", ")})`);
-        } else {
-          airspaceState.loaded = false;
-          airspaceState.partialFailure = true;
-          airspaceState.failedLayers = AIRSPACE_LAYERS.map(l => l.name);
-
-          if (connBadge) {
-            connBadge.innerText = "🔴 공역 데이터 조회 실패";
-            connBadge.style.background = "#fee2e2";
-            connBadge.style.color = "#991b1b";
-          }
-          if (failDetailEl) {
-            failDetailEl.style.display = "block";
-            failDetailEl.innerText = "실패 레이어: 5개 전 공역 레이어 조회 실패";
-          }
-          if (homeAirspaceStatusEl) homeAirspaceStatusEl.innerText = `🔴 공역 데이터 조회 실패`;
-          showToast("🔴 공역 데이터 조회가 실패했습니다.");
-        }
-
-        judgeCoordinates(lat, lon, airspaceState.isGps, airspaceState.accuracy);
-      })();
-
-      return activeAirspacePromise;
+      judgeCoordinates(lat, lon, airspaceState.isGps, airspaceState.accuracy);
     }
 
-    // 단일 레이어 BBOX 요청 (AbortController signal 및 실패 시 레이어 정리 지원)
-    async function fetchAirspaceLayerBBox(layer, bboxStr, signal) {
+    // [백업/보존] 기존 VWorld WFS 단일 레이어 요청 함수
+    async function fetchAirspaceLayerBBoxWFS(layer, bboxStr, signal) {
       const params = new URLSearchParams({
         SERVICE: "WFS",
         VERSION: "1.1.0",
@@ -2489,7 +2467,6 @@
           data: data
         };
       } catch (err) {
-        // 실패 시 이전 데이터 무효화
         airspaceDataStore[layer.key] = null;
         if (map && airspaceLayerGroups[layer.key]) {
           map.removeLayer(airspaceLayerGroups[layer.key]);
@@ -2504,6 +2481,19 @@
           error: err.message
         };
       }
+    }
+
+    // 공역 팝업 HTML 생성 헬퍼
+    function buildAirspacePopupHtml(layer, feat) {
+      const p = feat.properties || {};
+      const lowerText = (p.lower !== null && p.lower !== undefined) ? `${p.lower}${p.lowerUnit ? ' ' + p.lowerUnit : ''}` : (p.lowerRef || '지표면');
+      const upperText = (p.upper !== null && p.upper !== undefined) ? `${p.upper}${p.upperUnit ? ' ' + p.upperUnit : ''}` : (p.upperRef || '무제한');
+      return `<div style="font-weight:700;font-size:13px;border-bottom:1px solid #ddd;padding-bottom:3px;margin-bottom:4px;">${layer.icon} ${escapeHtml(layer.name)}</div>` +
+        `<div style="font-size:12px;margin-bottom:2px;"><strong>명칭:</strong> ${escapeHtml(p.name || p.id || '-')} (${escapeHtml(p.id || '-')})</div>` +
+        (p.sourceSubgroup ? `<div style="font-size:12px;margin-bottom:2px;"><strong>구분:</strong> ${escapeHtml(p.sourceSubgroup)}</div>` : '') +
+        `<div style="font-size:12px;margin-bottom:2px;"><strong>고도:</strong> ${escapeHtml(lowerText)} ~ ${escapeHtml(upperText)}</div>` +
+        `<div style="font-size:11px;color:#64748b;margin-top:3px;">※ 수평면 2D 판정 (고도 조건 별도 확인 필요)</div>` +
+        (p.sourceVersion ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px;">출처: ${escapeHtml(p.sourceVersion)}</div>` : '');
     }
 
     // Leaflet GeoJSON 렌더링
@@ -2527,22 +2517,6 @@
           };
         },
         onEachFeature: function (feat, leafletLayer) {
-          let popHtml = `<div style="font-weight:700; font-size:13px; margin-bottom:4px; border-bottom:1px solid #ddd; padding-bottom:3px;">${layer.icon} ${layer.name}</div>`;
-          const p = feat.properties || {};
-          let pCount = 0;
-
-          layer.propFields.forEach(field => {
-            if (p[field]) {
-              popHtml += `<div style="font-size:12px;"><strong>${field}:</strong> ${p[field]}</div>`;
-              pCount++;
-            }
-          });
-
-          if (pCount === 0) {
-            popHtml += `<div style="font-size:12px; color:#888;">정보 없음</div>`;
-          }
-          leafletLayer.bindPopup(popHtml);
-
           // 폴리곤 클릭 시 위치 선택 및 공역 팝업 동시 지원 (버블링 중복 방지)
           leafletLayer.on('click', function (e) {
             if (e && e.latlng) {
@@ -2552,6 +2526,8 @@
               L.DomEvent.stopPropagation(e);
             }
           });
+
+          leafletLayer.bindPopup(buildAirspacePopupHtml(layer, feat));
         }
       });
 
@@ -6116,13 +6092,16 @@ inquiryQuestionsText + "\n\n" +
       // 2. 승인준비 프로필 초기화 (localStorage)
       initPermitProfile();
 
-      // 3. UI 시계 및 기본 상태 표출
+      // 3. 국토교통부 AIP 정적 공역 데이터 사전 로드 (백그라운드 캐싱)
+      loadStaticAirspaceData();
+
+      // 4. UI 시계 및 기본 상태 표출
       const headerStatus = document.getElementById("headerStatus");
       if (headerStatus) {
         headerStatus.innerText = "🟢 정상 작동 중";
       }
 
-      console.log("[App] 초기화 완료 (사용자 위치 선택 대기)");
+      console.log("[App] 초기화 완료 (정적 공역 데이터 로드 및 사용자 위치 선택 대기)");
     });
   </script>
 </body>

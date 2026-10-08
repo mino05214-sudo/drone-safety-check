@@ -227,6 +227,23 @@ const server = http.createServer((req, res) => {
     const searchKeyword = (query.query || query.q || '').trim();
     const searchType = (query.type || 'place').toLowerCase(); // 'place' | 'address'
 
+    if (searchType !== 'place' && searchType !== 'address') {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '400 Bad Request: type은 place 또는 address여야 합니다.' }));
+      return;
+    }
+
+    let searchCategory = null;
+    if (searchType === 'address') {
+      const rawCategory = (query.category || 'ROAD').toUpperCase();
+      if (rawCategory !== 'ROAD' && rawCategory !== 'PARCEL') {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: '400 Bad Request: category는 ROAD 또는 PARCEL이어야 합니다.' }));
+        return;
+      }
+      searchCategory = rawCategory;
+    }
+
     if (!searchKeyword) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: '400 Bad Request: 검색어(query)를 입력하세요.' }));
@@ -256,15 +273,19 @@ const server = http.createServer((req, res) => {
       size: '5',
       page: '1',
       query: searchKeyword,
-      type: (searchType === 'address') ? 'address' : 'place',
+      type: searchType,
       format: 'json',
       errorformat: 'json',
       key: vworldApiKey.trim(),
       domain: vworldDomain.trim()
     });
 
+    if (searchCategory) {
+      targetParams.set('category', searchCategory);
+    }
+
     const targetUrl = `https://api.vworld.kr/req/search?${targetParams.toString()}`;
-    console.log(`[Proxy] Search Forwarding -> Type: ${searchType}, Query: ${searchKeyword.slice(0, 20)}`);
+    console.log(`[Proxy] Search Forwarding -> Type: ${searchType}${searchCategory ? ` (${searchCategory})` : ''}, Query: ${searchKeyword.slice(0, 20)}`);
 
     const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {

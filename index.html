@@ -2868,8 +2868,11 @@
         const res = await fetch(`/api/reverse?lat=${lat}&lon=${lon}`);
         if (!res.ok) return null;
         const data = await res.json();
-        if (data.success && data.address) {
-          return data.address;
+        if (data && data.response && data.response.status === "OK" && Array.isArray(data.response.result) && data.response.result.length > 0) {
+          const first = data.response.result[0];
+          if (first && first.text) {
+            return first.text.trim();
+          }
         }
       } catch (e) {
         console.warn("[ReverseGeocode] error:", e.message);
@@ -5252,38 +5255,96 @@
       listEl.style.display = "none";
 
       try {
-        let response = await fetch("/api/search?query=" + encodeURIComponent(keyword) + "&type=place");
-        let data = await response.json();
         let items = [];
+        let searchCategoryType = "place";
+        let hasApiError = false;
 
-        if (data && data.response && data.response.status === "OK" && data.response.result && data.response.result.items) {
-          items = data.response.result.items;
+        async function fetchSearchResults(url) {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) {
+              hasApiError = true;
+              return [];
+            }
+            const data = await res.json();
+            if (data && data.response) {
+              if (data.response.status === "OK" && data.response.result && Array.isArray(data.response.result.items)) {
+                return data.response.result.items;
+              } else if (data.response.status === "ERROR") {
+                hasApiError = true;
+              }
+            }
+            return [];
+          } catch (e) {
+            throw e; // 네트워크 연결 실패는 상위 catch로 전파
+          }
         }
 
-        if (items.length === 0) {
-          const addrResp = await fetch("/api/search?query=" + encodeURIComponent(keyword) + "&type=address");
-          const addrData = await addrResp.json();
-          if (addrData && addrData.response && addrData.response.status === "OK" && addrData.response.result && addrData.response.result.items) {
-            items = addrData.response.result.items;
+        // 1차: type=place
+        items = await fetchSearchResults("/api/search?query=" + encodeURIComponent(keyword) + "&type=place");
+        if (items.length > 0) {
+          searchCategoryType = "place";
+        } else {
+          // 2차: type=address & category=ROAD
+          items = await fetchSearchResults("/api/search?query=" + encodeURIComponent(keyword) + "&type=address&category=ROAD");
+          if (items.length > 0) {
+            searchCategoryType = "road";
+          } else {
+            // 3차: type=address & category=PARCEL
+            items = await fetchSearchResults("/api/search?query=" + encodeURIComponent(keyword) + "&type=address&category=PARCEL");
+            if (items.length > 0) {
+              searchCategoryType = "parcel";
+            }
           }
         }
 
         isSearchingLocation = false;
 
         if (items.length === 0) {
-          statusEl.innerText = '검색 결과가 없습니다: "' + keyword + '"';
+          if (hasApiError) {
+            statusEl.innerText = "⚠️ 주소 검색 서비스에 일시적인 문제가 있습니다.";
+          } else {
+            statusEl.innerText = '검색 결과가 없습니다: "' + keyword + '"';
+          }
           return;
         }
 
-        const topItems = items.slice(0, 5);
-        currentSearchResults = topItems.map(item => ({
-          title: item.title || keyword,
-          displayAddr: item.address?.road || item.address?.parcel || "주소 정보 없음",
-          lon: parseFloat(item.point.x),
-          lat: parseFloat(item.point.y)
-        }));
+        const validItems = [];
+        for (const item of items) {
+          if (!item || !item.point) continue;
+          const lon = parseFloat(item.point.x);
+          const lat = parseFloat(item.point.y);
+          if (isNaN(lon) || isNaN(lat)) continue;
 
-        statusEl.innerText = "검색 결과 " + topItems.length + "건 (터치하여 위치 선택):";
+          let title = "";
+          if (searchCategoryType === "place") {
+            title = item.title || item.address?.bldnm || item.address?.road || item.address?.parcel || keyword;
+          } else {
+            // 주소 검색 결과 제목 우선순위: 1. bldnm(건물명) 2. road 3. parcel 4. 검색어
+            title = (item.address?.bldnm && item.address.bldnm.trim()) ? item.address.bldnm.trim() :
+                    (item.address?.road && item.address.road.trim()) ? item.address.road.trim() :
+                    (item.address?.parcel && item.address.parcel.trim()) ? item.address.parcel.trim() :
+                    (item.title || keyword);
+          }
+
+          const displayAddr = item.address?.road || item.address?.parcel || "주소 정보 없음";
+
+          validItems.push({
+            title: title,
+            displayAddr: displayAddr,
+            lon: lon,
+            lat: lat
+          });
+          if (validItems.length >= 5) break;
+        }
+
+        if (validItems.length === 0) {
+          statusEl.innerText = '검색 결과에 유효한 좌표 정보가 없습니다: "' + keyword + '"';
+          return;
+        }
+
+        currentSearchResults = validItems;
+        statusEl.innerText = "검색 결과 " + validItems.length + "건 (터치하여 위치 선택):";
         listEl.style.display = "flex";
 
         let html = "";
@@ -5308,7 +5369,7 @@
       } catch (err) {
         isSearchingLocation = false;
         console.error("[Search Error]", err);
-        statusEl.innerText = "⚠️ 검색 요청 중 오류가 발생했습니다. 다시 시도하세요.";
+        statusEl.innerText = "⚠️ 네트워크 연결을 확인해주세요.";
       }
     }
 

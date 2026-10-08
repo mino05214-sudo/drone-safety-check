@@ -35,11 +35,11 @@ if (!Array.isArray(data.features)) {
 console.log('PASS: features is array, total length:', data.features.length);
 
 const expectedCounts = {
-  PROHIBITED: 4,
+  PROHIBITED: 14,
   RESTRICTED: 58,
   CTR: 20,
   UAS: 48,
-  TEMPORARY: 11,
+  TEMPORARY: 0,
 };
 
 const counts = {
@@ -135,7 +135,7 @@ for (const [k, exp] of Object.entries(expectedCounts)) {
   const pass = actual === exp;
   console.log(`${k}: 실제 ${actual}개 (예상 ${exp}개) -> ${pass ? 'PASS' : 'FAIL'}`);
 }
-console.log(`TOTAL: 실제 ${data.features.length}개 (예상 141개) -> ${data.features.length === 141 ? 'PASS' : 'FAIL'}`);
+console.log(`TOTAL: 실제 ${data.features.length}개 (예상 140개) -> ${data.features.length === 140 ? 'PASS' : 'FAIL'}`);
 
 console.log('\n--- Integrity Checks ---');
 console.log('Invalid geometries:', invalidGeomCount, invalidGeomCount === 0 ? 'PASS' : 'FAIL');
@@ -145,7 +145,7 @@ console.log('Missing properties:', missingPropCount, missingPropCount === 0 ? 'P
 console.log('Duplicate IDs:', duplicateIdCount, duplicateIdCount === 0 ? 'PASS' : 'FAIL');
 
 const allPass = (
-  data.features.length === 141 &&
+  data.features.length === 140 &&
   invalidGeomCount === 0 &&
   unclosedRingCount === 0 &&
   outOfRangeCoordsCount === 0 &&

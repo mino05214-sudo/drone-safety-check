@@ -1,0 +1,445 @@
+{
+  "checkedAt": "2026-10-07T01:11:24.985Z",
+  "localCheckedTime": "2026-10-07 10:11:24",
+  "staticSource": "data/airspace/airspace.geojson",
+  "layers": {
+    "PROHIBITED": {
+      "layerName": "lt_c_aisprhc",
+      "displayName": "비행금지구역",
+      "staticCount": 14,
+      "vworldCount": 15,
+      "status": "CHANGED",
+      "added": [
+        {
+          "id": "RK P61A",
+          "name": "RK P61A",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P61B",
+          "name": "RK P61B",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P62A",
+          "name": "RK P62A",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P62B",
+          "name": "RK P62B",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P63A",
+          "name": "RK P63A",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P63B",
+          "name": "RK P63B",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P64A",
+          "name": "RK P64A",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P64B",
+          "name": "RK P64B",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P65A",
+          "name": "RK P65A",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "RK P65B",
+          "name": "RK P65B",
+          "note": "원전 비행금지구역 (정적 데이터에서는 TEMPORARY 분류)"
+        },
+        {
+          "id": "D4006",
+          "name": "D4006",
+          "note": "추가된 비행금지구역"
+        }
+      ],
+      "removed": [
+        {
+          "id": "P61A",
+          "name": "P61A"
+        },
+        {
+          "id": "P61B",
+          "name": "P61B"
+        },
+        {
+          "id": "P62A",
+          "name": "P62A"
+        },
+        {
+          "id": "P62B",
+          "name": "P62B"
+        },
+        {
+          "id": "P63A",
+          "name": "P63A"
+        },
+        {
+          "id": "P63B",
+          "name": "P63B"
+        },
+        {
+          "id": "P64A",
+          "name": "P64A"
+        },
+        {
+          "id": "P64B",
+          "name": "P64B"
+        },
+        {
+          "id": "P65A",
+          "name": "P65A"
+        },
+        {
+          "id": "P65B",
+          "name": "P65B"
+        }
+      ],
+      "changed": [
+        {
+          "id": "RK P73",
+          "changes": [
+            {
+              "type": "NAME_CHANGED",
+              "static": "RK P73",
+              "vworld": "RK P73A",
+              "note": "청와대 이전 후 용산 비행금지구역 명칭 개편 (P-73 -> P-73A)"
+            }
+          ]
+        }
+      ],
+      "commonCount": 4
+    },
+    "RESTRICTED": {
+      "layerName": "lt_c_aisresc",
+      "displayName": "비행제한구역",
+      "staticCount": 58,
+      "vworldCount": 86,
+      "status": "CHANGED",
+      "added": [
+        {
+          "id": "R115",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R115 <UND>FL 380</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R136",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R136 <UND>500 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R128",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R128 <UND>7 000 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R107",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R107 <UND>FL 400</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R134",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R134 <UND>5 000 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R126",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R126 <UND>3 000 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R135",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R135 <UND>500 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R121",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R121 <UND>2 500 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R120",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R120 <UND>FL 380</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R123",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R123 <UND>3 700 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R119",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R119 <UND>2 500 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R118",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R118 <UND>2 500 AMSL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R97C",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R97C <UND>UNL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R74",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R74 <UND>FL 500</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R72",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R72 <UND>UNL</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R84",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R84 <UND>FL 500</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R153",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R153 <UND>3 000 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R88",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R88 <UND>FL 500</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R80",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R80 <UND>FL 500</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R99",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R99 <UND>FL 360</UND> GND</CLR></FNT>"
+        },
+        {
+          "id": "R131",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R131 <UND>5 000 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R147",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R147 <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R150",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R150 <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R143",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R143 <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R142B",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R142B <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R142C",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R142C <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R140",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R140 <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R141",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R141 <UND>300 AMSL</UND> SFC</CLR></FNT>"
+        },
+        {
+          "id": "R156",
+          "name": "<FNT name='TW Cen MT' size='6'><CLR cyan='70' magenta='10' yellow='100' black='0'>R156 <UND>3 500 AMSL</UND> SFC</CLR></FNT>"
+        }
+      ],
+      "removed": [
+        {
+          "id": "RK R97G",
+          "name": "CHEOLMAE-G"
+        }
+      ],
+      "changed": [
+        {
+          "id": "RK R97D",
+          "changes": [
+            {
+              "type": "GEOMETRY_CHANGED",
+              "detail": "Bbox diff: 0.081389"
+            }
+          ]
+        }
+      ],
+      "commonCount": 57
+    },
+    "CTR": {
+      "layerName": "lt_c_aisctrc",
+      "displayName": "관제권",
+      "staticCount": 20,
+      "vworldCount": 53,
+      "status": "CHANGED",
+      "added": [
+        {
+          "id": "OSAN CTLZ",
+          "name": "OSAN CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "JINHAE CTLZ",
+          "name": "JINHAE CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "NONSAN CTLZ",
+          "name": "NONSAN CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "PYEONGTAEK CTLZ",
+          "name": "PYEONGTAEK CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "SEONGMU CTLZ",
+          "name": "SEONGMU CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "SUWON CTLZ",
+          "name": "SUWON CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "ICHEON CTLZ",
+          "name": "ICHEON CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "GANGNEUNG TCA AREA A",
+          "name": "GANGNEUNG TCA AREA A",
+          "note": "접근관제구역(TCA)"
+        },
+        {
+          "id": "MOKPO CTLZ",
+          "name": "MOKPO CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "SOCKCHO CTLZ",
+          "name": "SOCKCHO CTLZ",
+          "note": "군 비행장 관제권"
+        },
+        {
+          "id": "SOKCHO",
+          "name": "SOKCHO",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "SEONGMU",
+          "name": "SEONGMU",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "HAEMI",
+          "name": "HAEMI",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "GANGNEUNG",
+          "name": "GANGNEUNG",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "SUWON",
+          "name": "SUWON",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "ICHEON",
+          "name": "ICHEON",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "NONSAN",
+          "name": "NONSAN",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "PYEONGTAEK",
+          "name": "PYEONGTAEK",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "JINHAE",
+          "name": "JINHAE",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "MOKPO",
+          "name": "MOKPO",
+          "note": "추가 관제구역"
+        },
+        {
+          "id": "OSAN",
+          "name": "OSAN",
+          "note": "추가 관제구역"
+        }
+      ],
+      "removed": [],
+      "changed": [],
+      "commonCount": 20
+    },
+    "UAS": {
+      "layerName": "lt_c_aisuac",
+      "displayName": "초경량비행장치공역",
+      "staticCount": 48,
+      "vworldCount": 48,
+      "status": "MATCH",
+      "added": [],
+      "removed": [],
+      "changed": [],
+      "commonCount": 48
+    },
+    "TEMPORARY": {
+      "layerName": "lt_c_aistemp",
+      "displayName": "임시비행금지공역",
+      "staticCount": 0,
+      "vworldCount": 3,
+      "status": "CHANGED",
+      "added": [
+        {
+          "id": "lt_c_aistemp.1",
+          "name": "<FNT name='TW Cen MT' size='6'><red='13' green='23' blue='110'><UND>500 AGL</UND> SFC</CLR></FNT>",
+          "altitude": "SFC ~ 500 AGL",
+          "geometryType": "MultiPolygon"
+        },
+        {
+          "id": "lt_c_aistemp.2",
+          "name": "<UND>1700 FT</UND> SFC",
+          "altitude": "SFC ~ 1700 FT",
+          "geometryType": "MultiPolygon"
+        },
+        {
+          "id": "D3554/25",
+          "name": "D3554/25",
+          "altitude": "SFC ~ UND",
+          "geometryType": "MultiPolygon"
+        }
+      ],
+      "removed": [],
+      "changed": [],
+      "commonCount": 0,
+      "querySuccess": true,
+      "note": "TEMPORARY 레이어의 존재 여부만으로 현재 실제 비행 가능 상태를 확정하지 않는다. 실제 비행 전 최신 공식 공역·승인 정보를 별도 확인해야 한다."
+    }
+  },
+  "summary": {
+    "overallStatus": "CHANGED",
+    "totalStaticFeatures": 140,
+    "totalVworldFeatures": 205,
+    "matchedLayers": [
+      "UAS"
+    ],
+    "changedLayers": [
+      "PROHIBITED",
+      "RESTRICTED",
+      "CTR",
+      "TEMPORARY"
+    ],
+    "disclaimer": "TEMPORARY 레이어의 존재 여부만으로 현재 실제 비행 가능 상태를 확정하지 않는다. 실제 비행 전 최신 공식 공역·승인 정보를 별도 확인해야 한다."
+  }
+}

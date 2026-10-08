@@ -46,11 +46,11 @@ function judgePoint(lon, lat) {
     desc: "현재 확인된 주요 공역 데이터에서 제한공역이 검출되지 않았습니다."
   };
 
-  const priorityOrder = ["PROHIBITED", "TEMPORARY", "RESTRICTED", "CTR", "UAS"];
+  const priorityOrder = ["PROHIBITED", "RESTRICTED", "CTR", "UAS"];
   for (const prioType of priorityOrder) {
     const topFeat = matched.find(m => m.properties.type === prioType);
     if (topFeat) {
-      if (prioType === "PROHIBITED" || prioType === "TEMPORARY" || prioType === "RESTRICTED") {
+      if (prioType === "PROHIBITED" || prioType === "RESTRICTED") {
         rep = {
           level: "danger",
           title: "비행 전 확인 필요",
@@ -82,7 +82,7 @@ const testCases = [
   { name: "3. 비행제한구역 내부", lon: 127.502328, lat: 37.523467, expectedType: "RESTRICTED" },
   { name: "4. 관제권 내부", lon: 127.499170, lat: 36.716653, expectedType: "CTR" },
   { name: "5. UAS 내부", lon: 127.007500, lat: 35.739444, expectedType: "UAS" },
-  { name: "6. TEMPORARY 내부", lon: 129.300000, lat: 35.316815, expectedType: "TEMPORARY" },
+  { name: "6. 원전 비행금지구역(P61A) 내부", lon: 129.300000, lat: 35.316815, expectedType: "PROHIBITED" },
 ];
 
 console.log("=== 6 Core Airspace Decision Tests ===");

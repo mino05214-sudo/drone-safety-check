@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🚁 드론 안전 체크 (Drone Safety Check)</title>
 
   <!-- Leaflet 1.9.4 CSS & JS (defer 전략) -->
@@ -46,7 +46,7 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      user-select: none;
+      user-select: text;
       padding-top: env(safe-area-inset-top, 0);
     }
 
@@ -136,6 +136,9 @@
       cursor: pointer;
       transition: all 0.15s ease;
       font-size: 13px;
+      min-height: 38px;
+      user-select: none;
+      touch-action: manipulation;
     }
 
     .btn-primary {
@@ -153,8 +156,9 @@
     .btn-secondary:hover { background: #e2e8f0; }
 
     .btn-sm {
-      padding: 5px 9px;
+      padding: 6px 10px;
       font-size: 12px;
+      min-height: 32px;
     }
 
     /* Inputs */
@@ -1027,7 +1031,16 @@
             <span>🔎</span> <span id="briefingReasonTitle">현재 확인할 사항</span>
           </div>
           <div id="briefingReasonList" style="color: #334155;">
-            현재 위치를 확인하면 기상, 공역, 체크리스트 종합 안전 분석이 시작됩니다.
+            현재 비행 예정 위치를 지정하면 기상, 공역, 체크리스트 종합 안전 분석이 시작됩니다.
+          </div>
+          <!-- 비행 예정 위치 첫 동선 액션 버튼 -->
+          <div id="homeLocationActionButtons" style="display: flex; gap: 6px; margin-top: 8px;">
+            <button class="btn-primary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 700;" onclick="fetchGpsOnHome()">
+              📍 현재 위치 사용 (GPS)
+            </button>
+            <button class="btn-secondary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 600;" onclick="focusSearchOnPermit()">
+              🔍 장소 검색
+            </button>
           </div>
         </div>
 
@@ -1046,7 +1059,7 @@
           <div class="briefing-card" style="background: rgba(255,255,255,0.65); border-radius: 8px; padding: 7px 9px; font-size: 11px;">
             <div style="font-weight: 700; color: #475569; margin-bottom: 2px;">🗺 공역 상태</div>
             <div id="briefingAirspaceSummary" style="font-size: 11px; color: #1e293b; font-weight: 600;">공역 미확인</div>
-            <div id="briefingAirspaceDetail" style="font-size: 10px; color: var(--muted); margin-top: 2px;">5개 공역 공간 검사</div>
+            <div id="briefingAirspaceDetail" style="font-size: 10px; color: var(--muted); margin-top: 2px;">4대 공역 확인</div>
           </div>
           <div class="briefing-card" style="background: rgba(255,255,255,0.65); border-radius: 8px; padding: 7px 9px; font-size: 11px; cursor: pointer;" onclick="switchTab('permit')">
             <div style="font-weight: 700; color: #475569; margin-bottom: 2px;">🚁 기체 정보</div>
@@ -1123,10 +1136,10 @@
         </div>
       </div>
 
-      <!-- VWorld 5개 공역 실시간 안전진단 카드 -->
+      <!-- 공역 안전진단 카드 (4대 핵심 공역 + 임시공역 공식 확인) -->
       <div class="card">
         <div class="card-title">
-          <span>🗺️ VWorld 5개 공역 안전진단 (주변 BBOX)</span>
+          <span>🗺️ 공역 안전진단 (위치 기반 공역 확인)</span>
           <button class="btn-primary btn-sm" onclick="switchTab('map')">지도 보기</button>
         </div>
         
@@ -1142,27 +1155,18 @@
           현재 위치를 확인한 후 공역을 판정할 수 있습니다.
         </p>
 
-        <!-- 5개 공역 상세 목록 (홈 화면) -->
+        <!-- 4대 공역 상세 목록 (홈 화면) -->
         <div class="airspace-res-list" id="homeAirspaceList">
           <!-- JS로 동적 렌더링 -->
         </div>
 
-        <div style="font-size: 11px; color: var(--muted); margin: 8px 0 6px 0; line-height: 1.4; padding: 6px 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-          ℹ️ <strong>진단 대상 공역 (5개)</strong>: 🔵 초경량비행장치공역 · 🔴 비행금지구역 · 🟠 비행제한구역 · 🟣 임시비행금지공역 · 🟡 관제권<br>
-          ※ 현재 종합 진단은 위 5개 공역 데이터의 공간 포함 여부를 기준으로 합니다.<br>
-          ※ 다른 항공·공역 정보와 실제 비행승인 여부는 공식 드론원스톱에서 확인하세요.
+        <div style="font-size: 11px; color: var(--muted); margin: 8px 0 6px 0; line-height: 1.45; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+          ℹ️ <strong>진단 대상 정규 공역</strong>: 🔴 비행금지구역 · 🟠 비행제한구역 · 🟡 관제권 · 🔵 초경량비행장치공역<br>
+          ※ 본 진단은 국토교통부 AIP 공역 데이터 기준이며, 가변적인 임시공역 및 최종 비행·촬영 승인 요건은 공식 <strong>드론원스톱 민원서비스</strong>에서 최종 확인하세요.
         </div>
 
-        <div class="disclaimer-text">
-          ※ 본 결과는 기상·공간 데이터 기반 참고용 진단이며, 비행 및 승인 확인 필요 여부는 <strong>공식 드론원스톱 민원서비스</strong>에서 확인하세요.
-        </div>
-
-        <div style="font-size: 11px; color: var(--muted); margin-top: 4px; text-align: center;">
-          본 앱은 기상·공간 데이터 기반 참고용 진단을 제공합니다. 비행 및 승인 확인 필요 여부와 필요한 승인·신고는 공식 드론원스톱에서 최종 확인하세요.
-        </div>
-
-        <a href="https://drone.onestop.go.kr/" target="_blank" class="onestop-link">
-          🔗 공식 드론원스톱 확인 &rarr;
+        <a href="https://drone.onestop.go.kr/" target="_blank" rel="noopener noreferrer" class="onestop-link" style="display: block; text-align: center; margin-top: 6px;">
+          🔗 공식 드론원스톱에서 최종 확인 &rarr;
         </a>
       </div>
 
@@ -1191,7 +1195,7 @@
       <!-- 상단 컨트롤 & 상태 바 -->
       <div class="card" style="padding: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <span style="font-size: 14px; font-weight: 700;">🗺️ 공역 데이터 (VWorld WFS)</span>
+          <span style="font-size: 14px; font-weight: 700;">🗺️ 공역 데이터 (국토부 AIP)</span>
           <span id="wfsConnBadge" style="font-size: 11px; padding: 2px 7px; border-radius: 12px; background: #e2e8f0; font-weight: bold;">
             확인 중...
           </span>
@@ -1236,26 +1240,21 @@
         </div>
       </div>
 
-      <!-- 5개 공역 레이어 ON/OFF 스위치 및 범례 -->
+      <!-- 4대 공역 레이어 ON/OFF 스위치 및 범례 -->
       <div class="card" style="padding: 12px;">
         <div class="card-title" style="margin-bottom: 8px; font-size: 13px;">
-          <span>🎨 공역 레이어 및 범례 (ON/OFF)</span>
+          <span>🎨 4대 핵심 공역 레이어 (ON/OFF)</span>
           <span style="font-size: 11px; color: var(--muted);">클릭 시 즉시 토글</span>
         </div>
         <div style="font-size: 11px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; padding: 8px 10px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
           <strong>📅 공역 데이터 기준:</strong> 국토교통부 AIP 26년 10차 기준<br>
-          <span style="color: #64748b;">※ 실제 비행 전 공식 드론원스톱 및 최신 공지를 확인하세요.</span>
+          <span style="color: #64748b;">※ 가변적 임시공역 및 비행 전 최종 정보는 공식 드론원스톱에서 확인하세요.</span>
         </div>
         <div class="layer-controls">
           <label class="layer-toggle">
             <input type="checkbox" id="chk_prohibited" checked onchange="toggleAirspaceLayer('prohibited')">
             <span class="color-dot" style="background: var(--danger);"></span>
             <span>🔴 비행금지</span>
-          </label>
-          <label class="layer-toggle">
-            <input type="checkbox" id="chk_temporary" checked onchange="toggleAirspaceLayer('temporary')">
-            <span class="color-dot" style="background: var(--purple);"></span>
-            <span>🟣 임시비행금지</span>
           </label>
           <label class="layer-toggle">
             <input type="checkbox" id="chk_restricted" checked onchange="toggleAirspaceLayer('restricted')">
@@ -1275,25 +1274,25 @@
         </div>
       </div>
 
-      <!-- 수동 테스트 좌표 입력 영역 -->
-      <div class="card" style="padding: 12px;">
-        <div class="card-title" style="font-size: 13px; margin-bottom: 6px;">
-          <span>🧪 테스트 좌표 직접 검사</span>
-          <div style="display: flex; gap: 4px;">
+      <!-- 수동 테스트 좌표 입력 영역 (개발자용 도구 - 기본 접힘) -->
+      <details class="card" style="padding: 10px 12px; margin-bottom: 12px;">
+        <summary style="font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer;">
+          🛠️ 개발자용 테스트 좌표 도구 (접힘)
+        </summary>
+        <div style="margin-top: 10px;">
+          <div style="display: flex; gap: 4px; margin-bottom: 6px;">
             <button class="btn-secondary btn-sm" onclick="setPresetCoord(37.5400, 126.9800)">[서울 37.54]</button>
             <button class="btn-secondary btn-sm" onclick="setPresetCoord(36.9700, 127.9300)">[충주 36.97]</button>
           </div>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <input type="number" id="manualLat" step="any" value="37.540000" placeholder="위도" aria-label="위도">
+            <input type="number" id="manualLon" step="any" value="126.980000" placeholder="경도" aria-label="경도">
+          </div>
+          <button class="btn-secondary btn-sm" style="width: 100%; padding: 8px;" onclick="judgeManualCoordinate()">
+            🔍 이 좌표로 공역 판정 실행
+          </button>
         </div>
-
-        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-          <input type="number" id="manualLat" step="any" value="37.540000" placeholder="위도">
-          <input type="number" id="manualLon" step="any" value="126.980000" placeholder="경도">
-        </div>
-
-        <button class="btn-primary" style="width: 100%; padding: 8px;" onclick="judgeManualCoordinate()">
-          🔍 이 좌표로 공역 판정 실행
-        </button>
-      </div>
+      </details>
 
       <!-- 공역 판정 결과 패널 -->
       <div class="card">
@@ -1311,18 +1310,13 @@
           </div>
         </div>
 
-        <!-- 5개 공역 개별 판정 리스트 -->
+        <!-- 4대 공역 개별 판정 리스트 -->
         <div class="airspace-res-list" id="airspaceResList">
           <!-- 스크립트로 렌더링 -->
         </div>
 
         <div class="disclaimer-text">
-          ※ 본 결과는 기상·공간 데이터 기반 참고용 진단이며,
-          비행 및 승인 확인 필요 여부 및 필요한 승인은 <strong>공식 드론원스톱 민원서비스</strong>에서 확인하세요.
-        </div>
-
-        <div style="font-size: 11px; color: var(--muted); margin-top: 4px; text-align: center;">
-          본 앱은 기상·공간 데이터 기반 참고용 진단을 제공합니다. 비행 및 승인 확인 필요 여부와 필요한 승인·신고는 공식 드론원스톱에서 최종 확인하세요.
+          ※ 본 결과는 국토부 AIP 데이터 기반 참고용 안내이며, 최종 비행·촬영 승인 요건은 <strong>공식 드론원스톱</strong>에서 확인하세요.
         </div>
 
         <a href="https://drone.onestop.go.kr/" target="_blank" class="onestop-link">
@@ -1982,7 +1976,7 @@
     const LAT_RANGE = 0.14;
     const LNG_RANGE = 0.17;
 
-    // 5개 레이어 스펙 (우선순위: 비행금지 > 임시금지 > 비행제한 > 관제권 > 초경량)
+    // 4대 핵심 공역 레이어 스펙 (우선순위: 비행금지 > 비행제한 > 관제권 > 초경량)
     const AIRSPACE_LAYERS = [
       {
         key: "prohibited",
@@ -1995,23 +1989,13 @@
         propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
-        key: "temporary",
-        type: "TEMPORARY",
-        typename: "lt_c_aistemp",
-        name: "임시비행금지공역",
-        icon: "🟣",
-        color: "#a855f7",
-        priority: 2,
-        propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
-      },
-      {
         key: "restricted",
         type: "RESTRICTED",
         typename: "lt_c_aisresc",
         name: "비행제한구역",
         icon: "🟠",
         color: "#f97316",
-        priority: 3,
+        priority: 2,
         propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
@@ -2021,7 +2005,7 @@
         name: "관제권",
         icon: "🟡",
         color: "#eab308",
-        priority: 4,
+        priority: 3,
         propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       },
       {
@@ -2031,7 +2015,7 @@
         name: "초경량비행장치공역",
         icon: "🔵",
         color: "#2563eb",
-        priority: 5,
+        priority: 4,
         propFields: ["id", "name", "typeName", "sourceSubgroup", "lower", "upper"]
       }
     ];
@@ -2306,28 +2290,42 @@
           elLocText.innerText = `위치: 위도 ${lat.toFixed(6)}, 경도 ${lon.toFixed(6)} (${modeBadge})`;
         }
 
-        // 풍속 및 강수 판정
+        // 풍속, 순간 돌풍, 강수량 복합 판정 (단정적 안전/위험 금지, 현장 확인 권고)
         const windStatus = document.getElementById("weatherWindStatus");
-        if (cur.wind_speed_10m <= 5 && cur.precipitation === 0) {
-          weatherState.level = "safe";
-          weatherState.statusText = "기상 양호";
+        const windVal = cur.wind_speed_10m !== undefined ? cur.wind_speed_10m : 0;
+        const gustVal = cur.wind_gusts_10m !== undefined ? cur.wind_gusts_10m : 0;
+        const precipVal = cur.precipitation !== undefined ? cur.precipitation : 0;
+
+        let issues = [];
+        if (windVal > 8) issues.push(`풍속 ${windVal}m/s`);
+        else if (windVal > 5) issues.push(`풍속 ${windVal}m/s`);
+
+        if (gustVal > 12) issues.push(`순간 돌풍 ${gustVal}m/s 확인 필요`);
+        else if (gustVal > 8) issues.push(`순간 돌풍 ${gustVal}m/s 유의`);
+
+        if (precipVal > 1) issues.push(`강수량 ${precipVal}mm 확인 필요`);
+        else if (precipVal > 0) issues.push(`강수 ${precipVal}mm`);
+
+        if (windVal > 8 || gustVal > 12 || precipVal > 1) {
+          weatherState.level = "danger";
+          weatherState.statusText = issues.join(" · ") || "기상 주의 요소 확인";
           if (windStatus) {
-            windStatus.innerText = "🟢 양호";
-            windStatus.style.color = "var(--success)";
+            windStatus.innerText = `🔴 ${issues[0] || "기상 주의"}`;
+            windStatus.style.color = "var(--danger)";
           }
-        } else if (cur.wind_speed_10m <= 8 && cur.precipitation <= 1) {
+        } else if (windVal > 5 || gustVal > 8 || precipVal > 0) {
           weatherState.level = "warning";
-          weatherState.statusText = "기상 주의";
+          weatherState.statusText = issues.join(" · ") || "기상 참고 및 주의";
           if (windStatus) {
-            windStatus.innerText = "🟡 주의";
+            windStatus.innerText = `🟡 ${issues[0] || "기상 주의"}`;
             windStatus.style.color = "var(--warning)";
           }
         } else {
-          weatherState.level = "danger";
-          weatherState.statusText = "기상 위험";
+          weatherState.level = "safe";
+          weatherState.statusText = "기상 지표 양호 (현장 확인 필요)";
           if (windStatus) {
-            windStatus.innerText = "🔴 위험";
-            windStatus.style.color = "var(--danger)";
+            windStatus.innerText = "🟢 기상 양호";
+            windStatus.style.color = "var(--success)";
           }
         }
 
@@ -2399,7 +2397,7 @@
       }
     }
 
-    // 정적 공역 GeoJSON 로드 (최초 1회 로드, 5대 공역 파티셔닝 및 렌더링)
+    // 정적 공역 GeoJSON 로드 (최초 1회 로드, 4대 공역 파티셔닝 및 렌더링)
     async function loadStaticAirspaceData(forceReload = false) {
       if (staticAirspaceLoaded && !forceReload) return true;
       if (staticAirspaceLoadingPromise && !forceReload) return staticAirspaceLoadingPromise;
@@ -2460,7 +2458,7 @@
             connBadge.style.color = "#065f46";
           }
           if (homeAirspaceStatusEl) {
-            homeAirspaceStatusEl.innerText = `✅ 국토부 5대 공역 ${totalCount}개 준비 완료 · 로드 ${timeStrShort}`;
+            homeAirspaceStatusEl.innerText = `✅ 국토부 4대 공역 ${totalCount}개 준비 완료 · 로드 ${timeStrShort}`;
           }
 
           const failDetailEl = document.getElementById("wfsFailDetail");
@@ -2864,6 +2862,21 @@
       showToast("📌 지도에서 위치가 선택되었습니다.");
     }
 
+    // 좌표 역지오코딩 (VWorld Reverse Geocoding)
+    async function reverseGeocodeCoords(lat, lon) {
+      try {
+        const res = await fetch(`/api/reverse?lat=${lat}&lon=${lon}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.success && data.address) {
+          return data.address;
+        }
+      } catch (e) {
+        console.warn("[ReverseGeocode] error:", e.message);
+      }
+      return null;
+    }
+
     // ============================================================
     // 통합 위치 설정 함수 (locationState -> airspaceState -> weather -> airspace -> map -> permit)
     // ============================================================
@@ -2877,6 +2890,19 @@
       locationState.accuracy = (meta.accuracy !== undefined) ? meta.accuracy : null;
       locationState.placeName = meta.placeName || (source === "gps" ? "GPS 현재 위치" : (source === "map" ? "지도 선택 위치" : (source === "preset" ? (meta.title || "지역 프리셋") : "수동 입력 좌표")));
       locationState.address = meta.address || "";
+
+      // 주소 역지오코딩 비동기 수행 (기존 주소가 비어있을 때)
+      if (!locationState.address && lat && lon) {
+        reverseGeocodeCoords(lat, lon).then(addr => {
+          if (addr) {
+            locationState.address = addr;
+            if (typeof updatePermitView === "function") {
+              updatePermitView();
+            }
+            updateComprehensiveDiagnosis();
+          }
+        });
+      }
 
       // 2. airspaceState 동기화 (기존 코드 완벽 호환)
       airspaceState.hasLocation = true;
@@ -2921,6 +2947,28 @@
       showToast(`✅ ${modeName} 공역 판정 완료`);
     }
 
+    // 홈 화면에서 GPS 버튼 클릭 핸들러
+    function fetchGpsOnHome() {
+      if (isGpsMeasuring) {
+        showToast("📍 이미 정밀 위치 측정이 진행 중입니다.");
+        return;
+      }
+      showToast("📍 현재 위치(GPS) 정밀 측정을 시작합니다...");
+      fetchGpsOnMap();
+    }
+
+    // 홈 화면에서 장소 검색 버튼 클릭 핸들러
+    function focusSearchOnPermit() {
+      switchTab("permit");
+      setTimeout(() => {
+        const searchInput = document.getElementById("permitSearchInput");
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+    }
+
     // 지도 화면의 GPS 버튼 클릭 핸들러
     function fetchGpsOnMap() {
       if (isGpsMeasuring) {
@@ -2958,13 +3006,17 @@
             title: `현재 위치 (${fb.tag}, 오차 ±${Math.round(bestSample.accuracy)}m)`
           };
 
+          const accWarn = bestSample.accuracy > 200
+            ? '<br><span style="color:var(--danger); font-size:11px; font-weight:600;">🚨 GPS 오차가 약 ' + Math.round(bestSample.accuracy) + 'm로 매우 큽니다! 공역 경계 판정이 부정확할 수 있으니 [장소 검색] 또는 [지도 터치]를 권장합니다.</span>'
+            : (bestSample.accuracy > 15 ? '<br><span style="color:var(--warning); font-size:11px;">⚠️ 위치 오차가 공역 경계 판정에 영향을 줄 수 있습니다.</span>' : '');
+
           // 위치 확인 액션 카드 표출
           showLocationActionCard({
             title: "📍 현재 GPS 위치 확인",
             badge: "GPS 모드",
             badgeBg: "#d1fae5",
             badgeColor: "#065f46",
-            detailHtml: `위도: <strong>${bestSample.latitude.toFixed(6)}</strong> · 경도: <strong>${bestSample.longitude.toFixed(6)}</strong><br>정확도: <strong>약 ${Math.round(bestSample.accuracy)}m</strong> (${fb.tag})${bestSample.accuracy > 15 ? '<br><span style="color:var(--warning); font-size:11px;">⚠️ 위치 오차가 공역 경계 판정에 영향을 줄 수 있습니다.</span>' : ''}`,
+            detailHtml: `위도: <strong>${bestSample.latitude.toFixed(6)}</strong> · 경도: <strong>${bestSample.longitude.toFixed(6)}</strong><br>정확도: <strong>약 ${Math.round(bestSample.accuracy)}m</strong> (${fb.tag})${accWarn}`,
             btnText: "✅ 이 위치로 공역 판정"
           });
 
@@ -2973,9 +3025,17 @@
         },
         onError: (err) => {
           isGpsMeasuring = false;
+          let errMsg = "GPS 신호를 가져올 수 없습니다.";
+          if (err && err.code === 1) {
+            errMsg = "위치 권한이 차단되었습니다. 브라우저 설정에서 위치 권한을 허용한 후 다시 시도해 주세요.";
+          } else if (err && err.code === 3) {
+            errMsg = "GPS 신호 수신 시간이 초과되었습니다. 실내인 경우 창가/야외로 이동하거나 [장소 검색] 및 [지도 직접 터치]를 이용해 주세요.";
+          } else {
+            errMsg = (err && err.message) || "위치 측정 실패";
+          }
           alertTxt.style.color = "var(--danger)";
-          alertTxt.innerText = `⚠️ 위치 확인 필요 (GPS 오류: ${err.message || '권한 거부 또는 측정 실패'}) → 지도 선택 또는 수동 좌표를 이용하세요.`;
-          showToast("⚠️ GPS 위치를 가져올 수 없습니다. 지도를 직접 클릭하거나 수동 좌표를 입력하세요.");
+          alertTxt.innerText = `⚠️ 위치 확인 필요: ${errMsg} → [장소 검색] 또는 [지도를 직접 클릭]해 주세요.`;
+          showToast(`⚠️ ${errMsg}`);
         }
       });
     }
@@ -3103,37 +3163,55 @@
         airspaceState.results[layer.key] = layerResult;
       });
 
-      // 대표 판정 계산 (우선순위 순서)
+      // 대표 판정 계산 (우선순위 순서: PROHIBITED > RESTRICTED > CTR > UAS)
       const included = results.filter(r => r.fetchSuccess && r.isIncluded).sort((a, b) => a.layer.priority - b.layer.priority);
 
       if (included.length > 0) {
         const top = included[0];
-        if (top.layer.priority === 1) { // 비행금지구역
+        if (top.layer.key === "prohibited" || top.layer.type === "PROHIBITED") {
           airspaceState.representative = {
             priority: 1,
             name: top.layer.name,
             icon: "🔴",
             level: "danger",
-            title: "비행 전 확인 필요",
-            desc: "비행금지구역 또는 임시비행금지공역이 확인되었습니다."
+            title: "🔴 비행금지구역 확인",
+            desc: "비행 전 공식 승인 여부를 확인하세요."
           };
-        } else if (top.layer.priority <= 3) { // 임시비행금지 / 비행제한
+        } else if (top.layer.key === "restricted" || top.layer.type === "RESTRICTED") {
           airspaceState.representative = {
-            priority: top.layer.priority,
+            priority: 2,
             name: top.layer.name,
-            icon: "🔴",
-            level: "danger",
-            title: "비행 전 확인 필요",
-            desc: "비행금지구역 또는 임시비행금지공역이 확인되었습니다."
+            icon: "🟠",
+            level: "warning",
+            title: "🟠 비행제한구역 확인",
+            desc: "해당 공역의 비행승인 조건을 공식 확인하세요."
           };
-        } else { // 관제권 / 초경량
+        } else if (top.layer.key === "control" || top.layer.type === "CTR") {
+          airspaceState.representative = {
+            priority: 3,
+            name: top.layer.name,
+            icon: "🟡",
+            level: "warning",
+            title: "🟡 관제권 확인",
+            desc: "관제권 관련 비행승인 조건을 공식 확인하세요."
+          };
+        } else if (top.layer.key === "uac" || top.layer.type === "UAS") {
+          airspaceState.representative = {
+            priority: 4,
+            name: top.layer.name,
+            icon: "🔵",
+            level: "info",
+            title: "🔵 초경량비행장치공역 확인",
+            desc: "해당 공역의 운영조건과 비행승인 요건을 확인하세요."
+          };
+        } else {
           airspaceState.representative = {
             priority: top.layer.priority,
             name: top.layer.name,
             icon: "🟡",
             level: "warning",
-            title: "비행 전 추가 확인",
-            desc: "관제권 또는 기타 주의 요소가 확인되었습니다."
+            title: `${top.layer.name} 확인`,
+            desc: "해당 공역의 공식 비행 승인 요건을 확인하세요."
           };
         }
       } else {
@@ -3239,6 +3317,23 @@
           </div>
         `;
       });
+
+      // TEMPORARY(임시공역) 공식 확인 안내 카드 (사용자 자체 판정 제외, 공식 확인 유도)
+      html += `
+        <div style="margin-top: 10px; padding: 12px 14px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <strong style="color: #6b21a8; font-size: 13px;">🟣 임시공역</strong>
+            <span style="font-size: 11px; background: #f3e8ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-weight: 600;">실시간 변동</span>
+          </div>
+          <div style="font-size: 12px; color: #581c87; margin-bottom: 8px; line-height: 1.45;">
+            최신 정보는 시간에 따라 변경될 수 있습니다.<br>비행 전 공식 드론원스톱에서 최신 공역 정보를 확인하세요.
+          </div>
+          <a href="https://drone.onestop.go.kr/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #7e22ce; color: #fff; font-size: 12px; font-weight: 600; border-radius: 6px; text-decoration: none;">
+            🌐 드론원스톱에서 최신 공역 확인 ↗
+          </a>
+        </div>
+      `;
+
       list.innerHTML = html;
     }
 
@@ -3452,7 +3547,7 @@
         }
 
         if (elAirspaceSummary) elAirspaceSummary.innerText = "공역 미확인";
-        if (elAirspaceDetail) elAirspaceDetail.innerText = "5개 공역 공간 검사 대기";
+        if (elAirspaceDetail) elAirspaceDetail.innerText = "4대 공역 확인 대기";
 
         homeAirspaceHeader.innerText = "📍 위치 확인 필요";
         homeAirspaceDesc.innerText = "현재 위치를 확인한 후 공역을 판정할 수 있습니다.";
@@ -3500,7 +3595,7 @@
               <li>📋 체크리스트 ${chk.completed}/${chk.total} ${chk.complete ? '완료 ✅' : '미완료 ⚠️'}</li>
             </ul>
             <div style="padding-top: 4px; border-top: 1px dashed rgba(0,0,0,0.12); font-size: 11px;">
-              <strong>🔎 현재 확인할 사항:</strong> VWorld 공역 데이터를 정상 수신하지 못했습니다. 실제 비행 승인 대상 여부는 공식 드론원스톱에서 확인하세요.
+              <strong>🔎 현재 확인할 사항:</strong> 공역 데이터를 정상 수신하지 못했습니다. 실제 비행 승인 대상 여부는 공식 드론원스톱에서 확인하세요.
             </div>
           `;
         }
@@ -3565,7 +3660,7 @@
         } else if (rep.level === "warning") {
           elAirspaceDetail.innerText = "관제권 등 공식 비행 조건 확인 🟡";
         } else {
-          elAirspaceDetail.innerText = "5개 주요 제한공역 미검출 (참고용) 🟢";
+          elAirspaceDetail.innerText = "주요 4대 제한공역 미검출 (참고용) 🟢";
         }
       }
 
@@ -3628,7 +3723,7 @@
         reasons.push(`🗺️ ${rep.name} 포함 🟡 (관제 승인 조건 확인 필요)`);
         actionItem = `${rep.name} 관련 공식 비행 조건 및 관제 승인 요건을 확인하세요.`;
       } else {
-        reasons.push(`🗺️ 주요 5개 제한공역 미검출 🟢 (군사시설 등 기타 제한은 현장 확인 필요)`);
+        reasons.push(`🗺️ 주요 4대 제한공역 미검출 🟢 (군사시설 등 기타 제한은 현장 확인 필요)`);
       }
 
       // 기상 원인 (Section 31: 참고용 상태 안내)
@@ -3717,7 +3812,7 @@
       if (!results || results.length === 0) {
         list.innerHTML = `
           <div style="font-size:12px; color:var(--muted); text-align:center; padding:8px 0;">
-            공역 데이터를 로드하거나 위치를 검사하면 5개 공역 상태가 표시됩니다.
+            공역 데이터를 로드하거나 위치를 검사하면 4개 공역 상태가 표시됩니다.
           </div>
         `;
         return;
@@ -3737,6 +3832,23 @@
           </div>
         `;
       });
+
+      // TEMPORARY(임시공역) 공식 확인 안내 카드 (사용자 자체 판정 제외, 공식 확인 유도)
+      html += `
+        <div style="margin-top: 10px; padding: 12px 14px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <strong style="color: #6b21a8; font-size: 13px;">🟣 임시공역</strong>
+            <span style="font-size: 11px; background: #f3e8ff; color: #7e22ce; padding: 2px 6px; border-radius: 4px; font-weight: 600;">실시간 변동</span>
+          </div>
+          <div style="font-size: 12px; color: #581c87; margin-bottom: 8px; line-height: 1.45;">
+            최신 정보는 시간에 따라 변경될 수 있습니다.<br>비행 전 공식 드론원스톱에서 최신 공역 정보를 확인하세요.
+          </div>
+          <a href="https://drone.onestop.go.kr/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #7e22ce; color: #fff; font-size: 12px; font-weight: 600; border-radius: 6px; text-decoration: none;">
+            🌐 드론원스톱에서 최신 공역 확인 ↗
+          </a>
+        </div>
+      `;
+
       list.innerHTML = html;
     }
 
@@ -3762,32 +3874,55 @@
         const el = document.createElement("div");
         el.className = `check-item ${isDone ? "done" : ""}`;
         el.id = `item_${item.id}`;
+        el.style.cursor = "pointer";
         el.innerHTML = `
-          <input type="checkbox" ${isDone ? "checked" : ""} onchange="toggleCheck('${item.id}')">
-          <div>
+          <input type="checkbox" id="chk_${item.id}" ${isDone ? "checked" : ""}>
+          <div style="flex:1;">
             <div class="check-text">${item.title}</div>
             <div class="check-desc">${item.desc}</div>
           </div>
         `;
+
+        el.addEventListener("click", (e) => {
+          const chkInput = el.querySelector("input[type='checkbox']");
+          if (e.target.tagName.toLowerCase() === "input") {
+            setCheckItemState(item.id, e.target.checked);
+          } else {
+            const nextChecked = !chkInput.checked;
+            chkInput.checked = nextChecked;
+            setCheckItemState(item.id, nextChecked);
+          }
+        });
+
         container.appendChild(el);
       });
 
       updateCheckProgress();
     }
 
-    function toggleCheck(id) {
+    function setCheckItemState(id, isDone) {
       const saved = safeStorageGet("drone_checklist", {});
-      saved[id] = !saved[id];
+      saved[id] = !!isDone;
       safeStorageSet("drone_checklist", saved);
 
       const el = document.getElementById(`item_${id}`);
-      if (saved[id]) {
-        el.classList.add("done");
-      } else {
-        el.classList.remove("done");
+      if (el) {
+        if (saved[id]) {
+          el.classList.add("done");
+        } else {
+          el.classList.remove("done");
+        }
       }
 
       updateCheckProgress();
+    }
+
+    function toggleCheck(id) {
+      const saved = safeStorageGet("drone_checklist", {});
+      const nextDone = !saved[id];
+      const chkInput = document.getElementById(`chk_${id}`);
+      if (chkInput) chkInput.checked = nextDone;
+      setCheckItemState(id, nextDone);
     }
 
     function resetChecklist() {
@@ -5616,7 +5751,7 @@
         if (!hasLoc) {
           airspaceListEl.innerHTML = `
             <div style="font-size: 12px; color: var(--muted); text-align: center; padding: 8px 0;">
-              위치를 지정하면 5개 공역 판정 상태가 한 줄로 표시됩니다.
+              위치를 지정하면 4개 공역 판정 상태가 한 줄로 표시됩니다.
             </div>
           `;
         } else {
@@ -5624,8 +5759,7 @@
             { key: "prohibited", name: "비행금지구역", icon: "🔴" },
             { key: "restricted", name: "비행제한구역", icon: "🟠" },
             { key: "control", name: "관제권", icon: "🟡" },
-            { key: "uac", name: "초경량비행장치공역", icon: "🔵" },
-            { key: "temporary", name: "임시비행금지공역", icon: "🟣" }
+            { key: "uac", name: "초경량비행장치공역", icon: "🔵" }
           ];
           let aHtml = "";
           layersOrder.forEach(l => {
@@ -5650,6 +5784,23 @@
               </div>
             `;
           });
+
+          // TEMPORARY(임시공역) 공식 확인 안내 카드
+          aHtml += `
+            <div style="margin-top: 8px; padding: 10px 12px; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
+                <strong style="color: #6b21a8; font-size: 12px;">🟣 임시공역</strong>
+                <span style="font-size: 10px; background: #f3e8ff; color: #7e22ce; padding: 2px 5px; border-radius: 4px; font-weight: 600;">실시간 변동</span>
+              </div>
+              <div style="font-size: 11px; color: #581c87; margin-bottom: 6px; line-height: 1.4;">
+                최신 정보는 시간에 따라 변경될 수 있습니다.<br>비행 전 공식 드론원스톱에서 최신 공역 정보를 확인하세요.
+              </div>
+              <a href="https://drone.onestop.go.kr/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: #7e22ce; color: #fff; font-size: 11px; font-weight: 600; border-radius: 5px; text-decoration: none;">
+                🌐 드론원스톱에서 최신 공역 확인 ↗
+              </a>
+            </div>
+          `;
+
           airspaceListEl.innerHTML = aHtml;
         }
       }
@@ -5705,9 +5856,17 @@
 
     // 드론원스톱 공식 처리부서 기준 행정지역별 지방항공청/출장소 매핑
     function getGeneralFlightAuthority(address, placeName) {
-      const target = ((address || "") + " " + (placeName || "")).trim();
-      let authorityName = "서울지방항공청 항공운항과";
-      let tel = "032-740-2157";
+      const target = (address || "").trim();
+      // 정확한 주소가 없으면 특정 관할기관을 임의로 확정하지 않음 (오안내 방지)
+      if (!target) {
+        return {
+          name: "📍 주소 확인 필요 (비행 지역 확인 후 드론원스톱에서 관할청 확인)",
+          tel: "드론원스톱 콜센터 1577-9871"
+        };
+      }
+
+      let authorityName = "";
+      let tel = "";
 
       if (target.includes("제주")) {
         authorityName = "제주지방항공청 안전운항과";
@@ -5763,6 +5922,11 @@
       ) {
         authorityName = "서울지방항공청 항공운항과";
         tel = "032-740-2157";
+      } else {
+        return {
+          name: "📍 주소 확인 필요 (비행 지역 확인 후 드론원스톱에서 관할청 확인)",
+          tel: "드론원스톱 콜센터 1577-9871"
+        };
       }
 
       return {
@@ -5784,9 +5948,8 @@
 
       const items = [];
 
-      // ① 공역 확인 (5개 레이어 개별 및 중첩 판정)
+      // ① 공역 확인 (4대 정규 레이어 개별 및 중첩 판정)
       const resProhibited = airspaceState.results ? airspaceState.results["prohibited"] : null;
-      const resTemporary = airspaceState.results ? airspaceState.results["temporary"] : null;
       const resControl = airspaceState.results ? airspaceState.results["control"] : null;
       const resRestricted = airspaceState.results ? airspaceState.results["restricted"] : null;
       const resUac = airspaceState.results ? airspaceState.results["uac"] : null;
@@ -5821,20 +5984,7 @@
           });
         }
 
-        // 2) 임시비행금지공역
-        if (resTemporary && resTemporary.isIncluded) {
-          detectedAirspaces.push("임시비행금지공역");
-          const tNames = extractAirspaceZoneNames(resTemporary.features);
-          const tZoneSuffix = tNames.length > 0 ? " [" + tNames.join(", ") + "]" : "";
-          items.push({
-            step: "① 공역 확인",
-            type: "danger",
-            title: "🔴 임시비행금지공역 포함 (사전 승인 확인 필요)" + tZoneSuffix,
-            desc: "임시로 설정된 비행금지공역입니다. 행사·경호·재난 등 사유로 비행이 제한되므로 공식 드론원스톱 및 관련 공고를 확인하세요."
-          });
-        }
-
-        // 3) 관제권
+        // 2) 관제권
         if (resControl && resControl.isIncluded) {
           detectedAirspaces.push("관제권");
           const cNames = extractAirspaceZoneNames(resControl.features);
@@ -5847,7 +5997,7 @@
           });
         }
 
-        // 4) 비행제한구역(R)
+        // 3) 비행제한구역(R)
         if (resRestricted && resRestricted.isIncluded) {
           detectedAirspaces.push("비행제한구역(R)");
           const rNames = extractAirspaceZoneNames(resRestricted.features);
@@ -5860,7 +6010,7 @@
           });
         }
 
-        // 5) 초경량비행장치공역(UAC)
+        // 4) 초경량비행장치공역(UAC)
         if (resUac && resUac.isIncluded) {
           detectedAirspaces.push("초경량비행장치공역(UAC)");
           const uNames = extractAirspaceZoneNames(resUac.features);
@@ -5873,7 +6023,7 @@
           });
         }
 
-        // 6) 중첩 공역 알림 (2개 이상 동시 검출 시)
+        // 5) 중첩 공역 알림 (2개 이상 동시 검출 시)
         if (detectedAirspaces.length >= 2) {
           items.push({
             step: "① 공역 확인 (중첩)",
@@ -5885,10 +6035,18 @@
           items.push({
             step: "① 공역 확인",
             type: "info",
-            title: "🟢 주요 5대 제한공역 미검출 (참고용 - 드론원스톱 최종 확인)",
-            desc: "현재 VWorld 5대 공역 기준 주요 제한구역은 미검출되었습니다. (참고용 안내이며, 전체 항공·군사·시설·지자체 규정을 모두 포함하지 않을 수 있으므로 비행 전 공식 드론원스톱에서 최종 확인하세요.)"
+            title: "🟢 주요 4대 제한공역 미검출 (참고용 - 드론원스톱 최종 확인)",
+            desc: "현재 국토부 AIP 4대 공역 기준 주요 제한구역은 미검출되었습니다. (참고용 안내이며, 전체 항공·군사·시설·지자체 규정을 모두 포함하지 않을 수 있으므로 비행 전 공식 드론원스톱에서 최종 확인하세요.)"
           });
         }
+
+        // 6) 임시공역 상시 안내
+        items.push({
+          step: "① 공역 확인 (임시공역)",
+          type: "info",
+          title: "🟣 임시공역 안내 (드론원스톱 최신 확인)",
+          desc: "임시공역 최신 정보는 시간에 따라 변경될 수 있습니다. 비행 전 공식 드론원스톱(https://drone.onestop.go.kr/)에서 최신 공역 정보를 확인하세요."
+        });
       }
 
       // ② 비행 조건 확인

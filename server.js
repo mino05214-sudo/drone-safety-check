@@ -36,10 +36,9 @@ loadEnv();
 const PORT = process.env.PORT || 5500;
 const PUBLIC_DIR = path.resolve(__dirname);
 
-// VWorld 5개 공역 레이어 화이트리스트
+// VWorld 4개 핵심 공역 레이어 화이트리스트 (PROHIBITED, RESTRICTED, CTR, UAS)
 const ALLOWED_TYPENAMES = new Set([
   'lt_c_aisprhc', // 비행금지구역
-  'lt_c_aistemp', // 임시비행금지공역
   'lt_c_aisresc', // 비행제한구역
   'lt_c_aisctrc', // 관제권
   'lt_c_aisuac'   // 초경량비행장치공역
@@ -60,13 +59,15 @@ const MIME_TYPES = {
   '.webp': 'image/webp'
 };
 
-// 웹으로 절대 제공하지 않을 민감 파일 목록
+// 웹으로 절대 제공하지 않을 민감 파일 목록 (개발 검증 JSON 포함)
 const BLOCKED_FILENAMES = new Set([
   '.env',
   '.gitignore',
   'server.js',
   'package.json',
-  'package-lock.json'
+  'package-lock.json',
+  'vworld-verification.json',
+  'airspace-update-candidates.json'
 ]);
 
 // IP 기반 간단한 인메모리 요청 제한 (VWorld Proxy 악용 방지)
@@ -108,7 +109,7 @@ const server = http.createServer((req, res) => {
       isOriginAllowed = true;
     } else if (reqHost && (reqOrigin === `http://${reqHost}` || reqOrigin === `https://${reqHost}`)) {
       isOriginAllowed = true;
-    } else if (reqOrigin.endsWith('.onrender.com')) {
+    } else if (reqOrigin === 'https://drone-safety-check.onrender.com') {
       isOriginAllowed = true;
     } else if (reqOrigin.startsWith('http://localhost:') || reqOrigin.startsWith('http://127.0.0.1:')) {
       isOriginAllowed = true;
@@ -130,7 +131,7 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
 
   // IP 기반 rate limit 검증 (API 프록시 엔드포인트)
-  if (parsedUrl.pathname === '/api/wfs' || parsedUrl.pathname === '/req/wfs' || parsedUrl.pathname === '/api/search') {
+  if (parsedUrl.pathname === '/api/wfs' || parsedUrl.pathname === '/req/wfs' || parsedUrl.pathname === '/api/search' || parsedUrl.pathname === '/api/reverse') {
     const trustProxy = process.env.TRUST_PROXY === 'true';
     let clientIp = req.socket.remoteAddress || 'unknown';
     if (trustProxy && req.headers['x-forwarded-for']) {
@@ -290,6 +291,67 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 3. VWorld 좌표 -> 주소 역지오코딩 엔드포인트 (/api/reverse)
+  if (parsedUrl.pathname === '/api/reverse') {
+    const query = parsedUrl.query;
+    const lat = parseFloat(query.lat || query.latitude);
+    const lon = parseFloat(query.lon || query.lng || query.longitude);
+
+    if (isNaN(lat) || isNaN(lon)) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '400 Bad Request: lat, lon 좌표가 필요합니다.' }));
+      return;
+    }
+
+    const vworldApiKey = process.env.VWORLD_API_KEY;
+    const vworldDomain = process.env.VWORLD_DOMAIN || 'localhost';
+
+    if (!vworldApiKey) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '서버 환경변수(VWORLD_API_KEY)가 설정되지 않았습니다.' }));
+      return;
+    }
+
+    const targetParams = new URLSearchParams({
+      service: 'address',
+      request: 'getAddress',
+      version: '2.0',
+      crs: 'epsg:4326',
+      point: `${lon},${lat}`,
+      format: 'json',
+      type: 'both',
+      key: vworldApiKey.trim(),
+      domain: vworldDomain.trim()
+    });
+
+    const targetUrl = `https://api.vworld.kr/req/address?${targetParams.toString()}`;
+    console.log(`[Proxy] Reverse Geocode -> Lat: ${lat}, Lon: ${lon}`);
+
+    const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, {
+        'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
+      });
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      if (!res.headersSent) {
+        res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: '504 Gateway Timeout: VWorld 주소 서버 응답 시간 초과 (10초)' }));
+      }
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error('[Proxy Error - Reverse]', err.message);
+      if (!res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld 주소 요청 실패' }));
+      }
+    });
+    return;
+  }
+
   // 3. 정적 파일 서빙 (path.resolve + path.relative 엄격한 보안 검증)
   let reqPath = parsedUrl.pathname;
   if (reqPath === '/' || reqPath === '') {
@@ -316,10 +378,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3-2. 민감 파일 및 숨김 파일/서버 내부 파일 차단
+  // 3-2. 민감 파일 및 숨김 파일/서버 내부 파일/개발용 폴더 차단
   const baseName = path.basename(safePath).toLowerCase();
+  const relNormalized = rel.replace(/\\/g, '/');
+  const isInternalFolder = relNormalized.startsWith('scratch/') || relNormalized.startsWith('scripts/') || relNormalized.startsWith('.git/');
   const isHidden = baseName.startsWith('.') || rel.split(path.sep).some(segment => segment.startsWith('.'));
-  if (isHidden || BLOCKED_FILENAMES.has(baseName)) {
+  if (isHidden || isInternalFolder || BLOCKED_FILENAMES.has(baseName)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('403 Forbidden: 접근할 수 없는 파일입니다.');
     return;

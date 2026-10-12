@@ -1,22 +1,22 @@
 # 🚁 드론 안전 체크 (Drone Safety Check) — 프로젝트 마스터 명세서
 
-> 문서 버전: 1.0.0 (STEP 3-24 기준)  
-> 최종 갱신일: 2026-09-29
+> 문서 버전: 1.2.0 (STEP 3.8 기준)<br>
+> 최종 갱신일: 2026-10-08
 
 ---
 
 ## 1. 프로젝트 비전 및 목표
 
-* **목표**: 비행 전 드론 조종자(취미용, 사업용, 농업용 등)가 복잡한 인허가 규정과 비행 가능 여부를 한 번의 위치 선택으로 즉시 판정받을 수 있는 경량 고성능 웹 서비스.
+* **목표**: 비행 전 드론 조종자(취미용, 사업용, 농업용 등)가 복잡한 인허가 규정과 비행 가능 여부를 한 번의 위치 선택으로 즉시 판정받을 수 있는 초경량 고성능 웹 서비스.
 * **핵심 가치**:
   * 외부 설치 프로그램 없이 브라우저(PC/모바일)에서 즉시 동작
-  * 국토교통부 브이월드(VWorld) 5대 공역 및 오픈 기상 데이터 실시간 연동
-  * 안전한 프록시 구조로 API Key 노출 방지
+  * 국토교통부 브이월드(VWorld) 4대 핵심 공역(140개) 로컬 Turf 판정 및 오픈 기상 데이터 실시간 연동
+  * 안전한 프록시 구조로 VWorld API Key 브라우저 노출 원천 방지
   * Zero-Dependency 순수 Node.js로 가볍고 신속한 배포
 
 ---
 
-## 2. 시스템 아키텍처
+## 2. 시스템 아키텍처 및 데이터 흐름
 
 ```mermaid
 flowchart TD
@@ -25,27 +25,32 @@ flowchart TD
     Server["server.js (Node.js 내장 모듈)"]
     VWorld["VWorld 국토교통부 API"]
     OpenMeteo["Open-Meteo 기상 API"]
+    StaticData["data/airspace/airspace.geojson (140개 공역)"]
+    DrOneStop["드론원스톱 공식 포털 (외부 링크)"]
 
     User -->|"HTTPS 요청 (index.html, CSS, JS)"| Cloud
     Cloud --> Server
-    User -->|"기상 데이터 요청"| OpenMeteo
-    User -->|"/api/wfs (공역 프록시)"| Server
-    User -->|"/api/search (통합 검색 프록시)"| Server
-    Server -->|"WFS 5개 공역 요청 (API Key 주입)"| VWorld
-    Server -->|"주소/장소 검색 요청"| VWorld
+    User -->|"정적 공역 데이터 로드 (Turf.js 로컬 판정)"| StaticData
+    User -->|"실시간 기상 데이터 요청"| OpenMeteo
+    User -->|"/api/wfs (4대 핵심 공역 WFS 프록시)"| Server
+    User -->|"/api/search (장소/도로명/지번 통합 검색)"| Server
+    User -->|"/api/reverse (좌표 -> 주소 역지오코딩)"| Server
+    User -->|"임시공역 실시간 변동 확인"| DrOneStop
+    Server -->|"WFS 4개 공역 요청 (API Key 주입)"| VWorld
+    Server -->|"장소/주소 검색 요청 (category 검증)"| VWorld
+    Server -->|"좌표 주소 변환 요청"| VWorld
 ```
 
 ---
 
-## 3. 배포 구조 (Deployment Specification)
+## 3. 배포 및 런타임 규격
 
-* **코드 저장소**: GitHub Public/Private Repository
+* **코드 저장소**: GitHub Repository (`main` 브랜치)
 * **호스팅 플랫폼**: Render Web Service
-* **런타임 환경**: Node.js (>= 16.0.0)
-* **네트워크 바인딩**: `0.0.0.0`, 포트는 `process.env.PORT`를 통해 Render가 동적 할당
-* **빌드 명령어 (Build Command)**: `npm install`
-* **시작 명령어 (Start Command)**: `npm start` (내부적으로 `node server.js` 실행)
-* **CORS & 프록시**: `x-forwarded-host`, `x-forwarded-for` 지원 및 `*.onrender.com` 도메인 허용
+* **런타임 환경**: Node.js (>= 16.0.0, Zero External Dependencies)
+* **네트워크 바인딩**: `0.0.0.0`, 포트는 `process.env.PORT` 동적 할당
+* **빌드/시작 명령어**: `npm start` (내부적으로 `node server.js` 실행)
+* **CORS & 프록시**: `x-forwarded-host`, `x-forwarded-for` 지원, `https://drone-safety-check.onrender.com` 허용
 
 ---
 
@@ -56,25 +61,34 @@ flowchart TD
 | `VWORLD_API_KEY` | **필수** | - | 국토교통부 브이월드 Open API 인증키 |
 | `VWORLD_DOMAIN` | 선택 | `localhost` | 브이월드 인증키 등록 도메인 (Render 배포 시 `xxx.onrender.com`) |
 | `PORT` | 선택 | `5500` | 서버 수신 포트 (Render 자동 부여) |
-| `TRUST_PROXY` | 권장 | `false` | `true` 설정 시 리버스 프록시 뒤 클라이언트 IP 추출 |
+| `TRUST_PROXY` | 권장 | `false` | `true` 설정 시 리버스 프록시 뒤 클라이언트 IP 추출 (Render 필수 권장) |
 | `ALLOWED_ORIGIN`| 선택 | - | 추가 허용할 CORS 도메인 |
 
 ---
 
-## 5. 실행 및 운영 가이드
+## 5. 핵심 아키텍처 설계 결정 (Architecture Decisions)
 
-* **로컬 환경**:
-  * Windows: `start.bat` 더블클릭 (자동 브라우저 실행)
-  * 수동 실행: `npm start` 또는 `node server.js` (기본 포트 `http://localhost:5500`)
-  * 종료: `stop.bat` 더블클릭 (포트 5500 프로세스만 타깃 종료)
-* **클라우드(Render) 환경**:
-  * GitHub 저장소 연동 후 대시보드에서 `VWORLD_API_KEY` 등록
-  * 배포 완료 후 발급된 `https://<service-name>.onrender.com` 접속
+### Decision 1: 4대 핵심 공역 정적 탑재 + 임시공역 분리 정책 (STEP 3.7.3)
+* **내용**: 런타임 정적 GeoJSON에는 140개 정규 공역(비행금지 14, 비행제한 58, 관제권 20, 초경량비행장치공역 48)만 탑재하고, 임시공역(`lt_c_aistemp`)은 정적 판정에서 제외하고 드론원스톱 실시간 링크 카드로 분리 제공한다.
+* **이유**: 원전 비행금지구역 10개소(P61A~P61E 등)는 정식 금지구역으로 편입하되, 행사·재난 등 수시로 변동되는 임시공역을 앱에 고정할 경우 발생하는 오안내 사고를 방지하기 위함.
+
+### Decision 2: 3단계 주소 검색 순차 Fallback (STEP 3.8)
+* **내용**: 1차 `place` ➔ 2차 `address (ROAD)` ➔ 3차 `address (PARCEL)` 순차 체인 적용 및 VWorld 규격 `category` 파라미터 검증.
+* **이유**: VWorld Search API 2.0의 `category` 누락으로 인한 `PARAM_REQUIRED` 에러를 원천 차단하고, 도로명 및 지번 주소 검색 누락을 방지하면서 불필요한 다중 API 호출을 방지함.
+
+### Decision 3: 중앙 집중식 `setLocation()` 파이프라인
+* **내용**: 주소 검색, 지도 클릭, GPS, 수동 좌표 입력 등 모든 위치 지정 이벤트는 `setLocation()` 단일 진입점을 통해 위치, 날씨, 공역, 진단을 일괄 동기화한다.
+* **이유**: 위치 변경 경로에 따른 상태 불일치(Stale State)와 경합 조건(Race Condition)을 방지함.
+
+### Decision 4: Zero-Dependency Node.js 백엔드 프록시
+* **내용**: 외부 npm 라이브러리(`node_modules`) 없이 Node.js 내장 모듈(`http`, `https`, `fs`, `path`, `url`)만으로 서버 구현.
+* **이유**: 의존성 취약점(CVE) 배제, 빠른 빌드 및 Render 무료 플랜에서의 신속한 구동 보장.
 
 ---
 
-## 6. 보안 정책
+## 6. 보안 원칙
 
-1. `.env` 파일은 절대 Git 및 외부로 유출하지 않는다. (`.gitignore` 적용)
-2. 모든 외부 공역/검색 API 호출은 백엔드 프록시(`server.js`)를 거치며, 브라우저에는 API Key가 전달되지 않는다.
-3. 인메모리 Rate Limit(60회/분), BBOX 크기 제한(최대 2.0도), 상위 디렉터리 접근 차단, 확장자 화이트리스트가 항상 작동한다.
+1. **비밀정보 비노출**: `.env` 파일은 절대 Git 및 외부에 노출하지 않으며, API Key는 백엔드 프록시(`server.js`)에서만 주입된다.
+2. **IP 기반 요청 제한 (Rate Limiting)**: 인메모리 토큰 기반으로 분당 60회 초과 요청 시 `429 Too Many Requests`로 차단한다.
+3. **BBOX 크기 제한**: 공역 쿼리 시 BBOX 크기를 최대 2.0도로 제한하여 서버 과부하를 방지한다.
+4. **내부 자원 보호**: `scratch/`, `scripts/`, `.git/`, 민감 파일 접근을 403 Forbidden으로 원천 차단한다.

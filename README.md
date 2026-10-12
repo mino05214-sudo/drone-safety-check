@@ -11,19 +11,19 @@
 ## 📖 1. 프로젝트 개요
 
 **드론 안전 체크(Drone Safety Check)**는 드론 비행 전 조종자가 필요한 모든 안전 정보를 한눈에 파악할 수 있도록 돕는 실시간 웹 애플리케이션입니다.  
-국토교통부 브이월드(VWorld)의 5대 공역 정보와 Open-Meteo의 실시간 기상 데이터를 결합하여, 현재 위치 또는 비행 예정 지역의 비행 승인 필요 여부와 기상 적합성을 자동으로 판정합니다.
+국토교통부 브이월드(VWorld) 및 AIP 4대 핵심 공역 정보와 Open-Meteo의 실시간 기상 데이터를 결합하여, 현재 위치 또는 비행 예정 지역의 비행 승인 필요 여부와 기상 적합성을 자동으로 판정합니다.
 
 ---
 
 ## ✨ 2. 주요 기능
 
-1. **🗺️ VWorld 5대 공역 실시간 조회 및 지도 시각화**
-   - 비행금지구역 (`lt_c_aisprhc`)
+1. **🗺️ 국토부 4대 핵심 공역 판정 및 임시공역 실시간 연동**
+   - 비행금지구역 (`lt_c_aisprhc` 및 원전 비행금지 10개소 포함)
    - 관제권 (`lt_c_aisctrc`)
    - 비행제한구역 (`lt_c_aisresc`)
-   - 임시비행금지공역 (`lt_c_aistemp`)
    - 초경량비행장치공역 (`lt_c_aisuac`)
-   - Turf.js 기반 포인트-인-폴리곤(Pip) 정밀 공역 판정
+   - 임시비행금지공역: 드론원스톱(Drone One-Stop) 공식 포털 실시간 확인 카드 및 바로가기 제공
+   - Turf.js 기반 포인트-인-폴리곤(Pip) 초고속 로컬 안전 판정 (140개 핵심 공역)
 2. **🔍 통합 주소 및 장소 검색**
    - VWorld 통합 검색 API 연동 (명칭, 도로명, 지번 검색 지원)
 3. **🌤️ 실시간 기상 및 풍속 안전 분석**
@@ -111,9 +111,13 @@ Render 대시보드의 **Environment Variables** 탭에 다음 변수를 등록�
 ├── stop.bat            # Windows 5500 포트 안전 종료 스크립트
 ├── RUN.md              # 로컬 독립 실행 초보자 가이드
 ├── README.md           # 프로젝트 전체 안내서 (본 파일)
+├── PROJECT_STATUS.md   # 현재 상태, 검증 목록 및 다음 작업 (기준 문서)
 ├── PROJECT_MASTER.md   # 프로젝트 마스터 명세서
 ├── CHANGELOG.md        # 변경 이력 기록서
-└── TEST_HISTORY.md     # 테스트 및 검증 이력서
+├── TEST_HISTORY.md     # 테스트 및 검증 이력서
+└── data/
+    └── airspace/
+        └── airspace.geojson  # 국토부 AIP 기반 140개 핵심 공역 데이터
 ```
 
 ---
@@ -122,8 +126,9 @@ Render 대시보드의 **Environment Variables** 탭에 다음 변수를 등록�
 
 * [x] `node --check server.js` 문법 무결성 검증 통과
 * [x] HTTP 200 정상 응답 및 정적 파일 무결성 확인
+* [x] 정적 GeoJSON 140개 공역 무결성 및 Turf.js 판정 테스트 통과 (`scratch/test_airspace_geojson.js`, `scratch/test_turf_decision.mjs`)
+* [x] 주소 검색 3단계 체인(place → ROAD → PARCEL) 및 역지오코딩 복구 검증 통과
 * [x] 드론 검색 알고리즘 100% 통과 (`scratch/test_drone_search.js`)
 * [x] 동시성 및 Rate Limit 방어 테스트 통과 (`scratch/test_concurrency_and_security.js`)
-* [x] VWorld 5대 공역 레이어 WFS 프록시 통과 (`scratch/test_vworld_5layers.js`)
 * [x] 폴리곤 클릭 및 마커 연동 검증 통과 (`scratch/verify_polygon_click_fix.js`)
 * [x] XSS, Path Traversal, BBOX 유효성 등 보안 테스트 통과 (`scratch/verify_audit3.js`)

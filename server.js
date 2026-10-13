@@ -486,6 +486,141 @@ const server = http.createServer((req, res) => {
   });
 });
 
+const EGRESS_DIAG_TARGETS = Object.freeze([
+  Object.freeze({ name: 'example.com', url: 'https://example.com/' }),
+  Object.freeze({ name: 'api.vworld.kr', url: 'https://api.vworld.kr/' })
+]);
+
+function sanitizeDiagMessage(msg) {
+  if (!msg) return 'NONE';
+  return String(msg)
+    .replace(/https?:\/\/[^\s"']+/gi, '<URL_REDACTED>')
+    .replace(/\[[0-9a-fA-F:.]+(?:%[0-9a-zA-Z._-]+)?\](?::\d+)?/g, '<IPV6_REDACTED>')
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, '<IP_REDACTED>')
+    .replace(/(?:[0-9a-fA-F]{0,4}:){2,}[0-9a-fA-F:.]*(?:%[0-9a-zA-Z._-]+)?(?::\d+)?/g, '<IPV6_REDACTED>');
+}
+
+function probeHttpsTarget(target) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const state = {
+      target: target.name,
+      lookup: 'PENDING',
+      family: 'NONE',
+      connect: false,
+      secureConnect: false,
+      authorized: 'NONE',
+      authorizationError: 'NONE',
+      httpStatus: 'NONE',
+      closedBeforeResponse: false,
+      timeoutTriggered: false,
+      cause: 'UNKNOWN',
+      errorCode: 'NONE',
+      errorMessage: 'NONE',
+      elapsedMs: 0
+    };
+
+    let finished = false;
+    let responseReceived = false;
+
+    const finalize = (cause) => {
+      if (finished) return;
+      finished = true;
+      state.cause = cause;
+      state.elapsedMs = Date.now() - startTime;
+      console.log(
+        `[Egress Diag] target=${state.target} cause=${state.cause} lookup=${state.lookup} family=${state.family} connect=${state.connect} secureConnect=${state.secureConnect} authorized=${state.authorized} authorizationError=${state.authorizationError} httpStatus=${state.httpStatus} closedBeforeResponse=${state.closedBeforeResponse} timeoutTriggered=${state.timeoutTriggered} errorCode=${state.errorCode} errorMessage="${state.errorMessage}" elapsed=${state.elapsedMs}ms`
+      );
+      resolve(state);
+    };
+
+    try {
+      const req = https.get(target.url, {
+        agent: false,
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'DroneSafetyCheck/1.0',
+          'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
+        }
+      }, (res) => {
+        responseReceived = true;
+        state.httpStatus = res.statusCode;
+        res.on('error', () => {});
+        res.resume();
+        finalize('HTTP_RESPONSE_RECEIVED');
+      });
+
+      req.on('socket', (socket) => {
+        socket.on('lookup', (err, _address, family) => {
+          if (err) {
+            state.lookup = `ERROR:${err.code || 'UNKNOWN'}`;
+          } else {
+            state.lookup = 'OK';
+          }
+          state.family = family ? String(family) : 'NONE';
+        });
+
+        socket.on('connect', () => {
+          state.connect = true;
+        });
+
+        socket.on('secureConnect', () => {
+          state.secureConnect = true;
+          state.authorized = Boolean(socket.authorized);
+          const authErr = socket.authorizationError;
+          state.authorizationError = authErr ? String(authErr.code || authErr.message || authErr) : 'NONE';
+        });
+
+        socket.on('close', () => {
+          if (!responseReceived && !finished) {
+            state.closedBeforeResponse = true;
+          }
+        });
+      });
+
+      req.on('timeout', () => {
+        if (finished) return;
+        state.timeoutTriggered = true;
+        state.closedBeforeResponse = !responseReceived;
+        state.errorCode = 'ETIMEDOUT';
+        state.errorMessage = sanitizeDiagMessage('Diagnostic timeout (5000ms)');
+        finalize('DIAGNOSTIC_TIMEOUT');
+        req.destroy();
+      });
+
+      req.on('error', (err) => {
+        if (finished) return;
+        state.closedBeforeResponse = !responseReceived;
+        state.errorCode = err.code || 'NONE';
+        state.errorMessage = sanitizeDiagMessage(err.message);
+        finalize('REMOTE_OR_NETWORK_ERROR');
+      });
+    } catch (syncErr) {
+      state.closedBeforeResponse = true;
+      state.errorCode = syncErr.code || 'SYNC_ERR';
+      state.errorMessage = sanitizeDiagMessage(syncErr.message);
+      finalize('REMOTE_OR_NETWORK_ERROR');
+    }
+  });
+}
+
+function runEgressDiagnosticsIfEnabled() {
+  if (process.env.ENABLE_EGRESS_DIAGNOSTICS !== 'true') {
+    return;
+  }
+  setImmediate(async () => {
+    try {
+      console.log('[Egress Diag] Starting one-time outbound HTTPS comparison (example.com vs api.vworld.kr)...');
+      for (const target of EGRESS_DIAG_TARGETS) {
+        await probeHttpsTarget(target);
+      }
+      console.log('[Egress Diag] Outbound HTTPS comparison finished.');
+    } catch (err) {
+      console.error('[Egress Diag] Unexpected error:', sanitizeDiagMessage(err.message));
+    }
+  });
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://0.0.0.0:${PORT}/`);
   console.log(`[Server] VWorld proxy enabled at /api/wfs`);
@@ -495,4 +630,5 @@ server.listen(PORT, '0.0.0.0', () => {
   } else {
     console.warn(`[Server Warning] VWorld API Key가 설정되지 않았습니다.`);
   }
+  runEgressDiagnosticsIfEnabled();
 });

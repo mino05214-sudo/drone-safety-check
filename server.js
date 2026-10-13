@@ -196,7 +196,16 @@ const server = http.createServer((req, res) => {
     // 보안 로깅: API Key 노출 없이 레이어명과 BBOX만 출력
     console.log(`[Proxy] WFS Forwarding -> Layer: ${typename}, BBOX: ${bbox || 'N/A'}`);
 
-    const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
+    const startTime = Date.now();
+    let timeoutTriggered = false;
+
+    const proxyReq = https.get(targetUrl, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'DroneSafetyCheck/1.0',
+        'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
+      }
+    }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {
         'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
       });
@@ -204,6 +213,9 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('timeout', () => {
+      timeoutTriggered = true;
+      const elapsedMs = Date.now() - startTime;
+      console.error(`[Proxy Timeout - WFS] elapsed=${elapsedMs}ms timeoutTriggered=${timeoutTriggered}`);
       proxyReq.destroy();
       if (!res.headersSent) {
         res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -212,7 +224,11 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('error', (err) => {
-      console.error('[Proxy Error - WFS]', err.message);
+      const elapsedMs = Date.now() - startTime;
+      const cause = timeoutTriggered ? 'AFTER_LOCAL_TIMEOUT' : 'REMOTE_OR_NETWORK_ERROR';
+      console.error(
+        `[Proxy Error - WFS] cause=${cause} timeoutTriggered=${timeoutTriggered} elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`
+      );
       if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld WFS 요청 실패' }));
@@ -290,7 +306,13 @@ const server = http.createServer((req, res) => {
     const startTime = Date.now();
     let timeoutTriggered = false;
 
-    const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
+    const proxyReq = https.get(targetUrl, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'DroneSafetyCheck/1.0',
+        'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
+      }
+    }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {
         'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
       });
@@ -361,7 +383,13 @@ const server = http.createServer((req, res) => {
     const startTime = Date.now();
     let timeoutTriggered = false;
 
-    const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
+    const proxyReq = https.get(targetUrl, {
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'DroneSafetyCheck/1.0',
+        'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
+      }
+    }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {
         'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
       });

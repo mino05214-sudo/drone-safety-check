@@ -287,6 +287,9 @@ const server = http.createServer((req, res) => {
     const targetUrl = `https://api.vworld.kr/req/search?${targetParams.toString()}`;
     console.log(`[Proxy] Search Forwarding -> Type: ${searchType}${searchCategory ? ` (${searchCategory})` : ''}, Query: ${searchKeyword.slice(0, 20)}`);
 
+    const startTime = Date.now();
+    let timeoutTriggered = false;
+
     const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {
         'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
@@ -295,6 +298,9 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('timeout', () => {
+      timeoutTriggered = true;
+      const elapsedMs = Date.now() - startTime;
+      console.error(`[Proxy Timeout - Search] elapsed=${elapsedMs}ms timeoutTriggered=${timeoutTriggered}`);
       proxyReq.destroy();
       if (!res.headersSent) {
         res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -303,7 +309,11 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('error', (err) => {
-      console.error('[Proxy Error - Search]', err.message);
+      const elapsedMs = Date.now() - startTime;
+      const cause = timeoutTriggered ? 'AFTER_LOCAL_TIMEOUT' : 'REMOTE_OR_NETWORK_ERROR';
+      console.error(
+        `[Proxy Error - Search] cause=${cause} timeoutTriggered=${timeoutTriggered} elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`
+      );
       if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld 검색 요청 실패' }));
@@ -348,6 +358,9 @@ const server = http.createServer((req, res) => {
     const targetUrl = `https://api.vworld.kr/req/address?${targetParams.toString()}`;
     console.log(`[Proxy] Reverse Geocode -> Lat: ${lat}, Lon: ${lon}`);
 
+    const startTime = Date.now();
+    let timeoutTriggered = false;
+
     const proxyReq = https.get(targetUrl, { timeout: 10000 }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode, {
         'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
@@ -356,6 +369,9 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('timeout', () => {
+      timeoutTriggered = true;
+      const elapsedMs = Date.now() - startTime;
+      console.error(`[Proxy Timeout - Reverse] elapsed=${elapsedMs}ms timeoutTriggered=${timeoutTriggered}`);
       proxyReq.destroy();
       if (!res.headersSent) {
         res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -364,7 +380,11 @@ const server = http.createServer((req, res) => {
     });
 
     proxyReq.on('error', (err) => {
-      console.error('[Proxy Error - Reverse]', err.message);
+      const elapsedMs = Date.now() - startTime;
+      const cause = timeoutTriggered ? 'AFTER_LOCAL_TIMEOUT' : 'REMOTE_OR_NETWORK_ERROR';
+      console.error(
+        `[Proxy Error - Reverse] cause=${cause} timeoutTriggered=${timeoutTriggered} elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`
+      );
       if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld 주소 요청 실패' }));

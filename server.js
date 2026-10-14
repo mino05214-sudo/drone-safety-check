@@ -527,10 +527,58 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const EGRESS_DIAG_TARGETS = Object.freeze([
-  Object.freeze({ name: 'example.com', url: 'https://example.com/' }),
-  Object.freeze({ name: 'api.vworld.kr', url: 'https://api.vworld.kr/' })
-]);
+function getEgressDiagTargets() {
+  const vworldApiKey = (process.env.VWORLD_API_KEY || '').trim();
+  const vworldDomain = (process.env.VWORLD_DOMAIN || 'localhost').trim();
+
+  const searchParams = new URLSearchParams({
+    service: 'search',
+    request: 'search',
+    version: '2.0',
+    query: '충주시청',
+    type: 'place',
+    size: '1',
+    page: '1',
+    format: 'json',
+    errorformat: 'json',
+    crs: 'EPSG:4326',
+    key: vworldApiKey,
+    domain: vworldDomain
+  });
+
+  const addressParams = new URLSearchParams({
+    service: 'address',
+    request: 'getAddress',
+    version: '2.0',
+    point: '127.93,36.97',
+    format: 'json',
+    type: 'both',
+    crs: 'epsg:4326',
+    key: vworldApiKey,
+    domain: vworldDomain
+  });
+
+  const wfsParams = new URLSearchParams({
+    SERVICE: 'WFS',
+    VERSION: '1.1.0',
+    REQUEST: 'GetFeature',
+    TYPENAME: 'lt_c_aisprhc',
+    OUTPUTFORMAT: 'application/json',
+    SRSNAME: 'EPSG:4326',
+    BBOX: '127.92,36.96,127.94,36.98',
+    MAXFEATURES: '1',
+    KEY: vworldApiKey,
+    DOMAIN: vworldDomain
+  });
+
+  return [
+    Object.freeze({ name: 'example.com', url: 'https://example.com/' }),
+    Object.freeze({ name: 'api.vworld.kr', url: 'https://api.vworld.kr/' }),
+    Object.freeze({ name: 'vworld-search', url: `https://api.vworld.kr/req/search?${searchParams.toString()}` }),
+    Object.freeze({ name: 'vworld-address', url: `https://api.vworld.kr/req/address?${addressParams.toString()}` }),
+    Object.freeze({ name: 'vworld-wfs', url: `https://api.vworld.kr/req/wfs?${wfsParams.toString()}` })
+  ];
+}
 
 let egressDiagPromise = null;
 let egressDiagCache = null;
@@ -556,11 +604,14 @@ function probeHttpsTarget(target) {
       authorized: 'NONE',
       authorizationError: 'NONE',
       httpStatus: 'NONE',
+      contentType: 'NONE',
       closedBeforeResponse: false,
       timeoutTriggered: false,
       cause: 'UNKNOWN',
       errorCode: 'NONE',
       errorMessage: 'NONE',
+      providerStatus: 'NONE',
+      featuresCount: 'NONE',
       elapsedMs: 0
     };
 
@@ -573,7 +624,7 @@ function probeHttpsTarget(target) {
       state.cause = cause;
       state.elapsedMs = Date.now() - startTime;
       console.log(
-        `[Egress Diag] target=${state.target} cause=${state.cause} lookup=${state.lookup} family=${state.family} connect=${state.connect} secureConnect=${state.secureConnect} authorized=${state.authorized} authorizationError=${state.authorizationError} httpStatus=${state.httpStatus} closedBeforeResponse=${state.closedBeforeResponse} timeoutTriggered=${state.timeoutTriggered} errorCode=${state.errorCode} errorMessage="${state.errorMessage}" elapsed=${state.elapsedMs}ms`
+        `[Egress Diag] target=${state.target} cause=${state.cause} lookup=${state.lookup} family=${state.family} connect=${state.connect} secureConnect=${state.secureConnect} authorized=${state.authorized} authorizationError=${state.authorizationError} httpStatus=${state.httpStatus} providerStatus=${state.providerStatus} featuresCount=${state.featuresCount} closedBeforeResponse=${state.closedBeforeResponse} timeoutTriggered=${state.timeoutTriggered} errorCode=${state.errorCode} errorMessage="${state.errorMessage}" elapsed=${state.elapsedMs}ms`
       );
       resolve(state);
     };
@@ -589,9 +640,39 @@ function probeHttpsTarget(target) {
       }, (res) => {
         responseReceived = true;
         state.httpStatus = res.statusCode;
-        res.on('error', () => {});
-        res.resume();
-        finalize('HTTP_RESPONSE_RECEIVED');
+        state.contentType = res.headers['content-type'] || 'NONE';
+
+        let bodyText = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          if (bodyText.length < 65536) {
+            bodyText += chunk;
+          }
+        });
+        res.on('end', () => {
+          try {
+            const trimmed = bodyText.trim();
+            if (trimmed.startsWith('{')) {
+              const json = JSON.parse(trimmed);
+              if (json.response) {
+                if (json.response.status) {
+                  state.providerStatus = String(json.response.status);
+                } else if (json.response.error) {
+                  state.providerStatus = `ERROR:${json.response.error.code || 'UNKNOWN'}:${json.response.error.text || ''}`.trim();
+                }
+              } else if (json.error) {
+                state.providerStatus = `ERROR:${json.error.code || json.error.status || 'UNKNOWN'}`;
+              }
+              if (Array.isArray(json.features)) {
+                state.featuresCount = json.features.length;
+                if (state.providerStatus === 'NONE') {
+                  state.providerStatus = 'GEOJSON_OK';
+                }
+              }
+            }
+          } catch (_) {}
+          finalize('HTTP_RESPONSE_RECEIVED');
+        });
       });
 
       req.on('socket', (socket) => {
@@ -656,9 +737,10 @@ function executeEgressDiagnosticsOnce() {
     return egressDiagPromise;
   }
   egressDiagPromise = (async () => {
-    console.log('[Egress Diag] Starting one-time outbound HTTPS comparison (example.com vs api.vworld.kr)...');
+    console.log('[Egress Diag] Starting one-time outbound HTTPS comparison (5 targets)...');
+    const targets = getEgressDiagTargets();
     const results = [];
-    for (const target of EGRESS_DIAG_TARGETS) {
+    for (const target of targets) {
       const res = await probeHttpsTarget(target);
       results.push(res);
     }

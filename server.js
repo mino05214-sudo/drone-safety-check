@@ -130,8 +130,8 @@ const server = http.createServer((req, res) => {
 
   const parsedUrl = url.parse(req.url, true);
 
-  // IP 기반 rate limit 검증 (API 프록시 엔드포인트)
-  if (parsedUrl.pathname === '/api/wfs' || parsedUrl.pathname === '/req/wfs' || parsedUrl.pathname === '/api/search' || parsedUrl.pathname === '/api/reverse') {
+  // IP 기반 rate limit 검증 (API 프록시 및 진단 엔드포인트)
+  if (parsedUrl.pathname === '/api/wfs' || parsedUrl.pathname === '/req/wfs' || parsedUrl.pathname === '/api/search' || parsedUrl.pathname === '/api/reverse' || parsedUrl.pathname === '/api/egress-diagnostics') {
     const trustProxy = process.env.TRUST_PROXY === 'true';
     let clientIp = req.socket.remoteAddress || 'unknown';
     if (trustProxy && req.headers['x-forwarded-for']) {
@@ -421,7 +421,48 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. 정적 파일 서빙 (path.resolve + path.relative 엄격한 보안 검증)
+  // 4. 임시 아웃바운드 HTTPS 연결 비교 진단 엔드포인트 (GET /api/egress-diagnostics)
+  if (parsedUrl.pathname === '/api/egress-diagnostics') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '405 Method Not Allowed' }));
+      return;
+    }
+
+    const trustProxy = process.env.TRUST_PROXY === 'true';
+    let clientIp = req.socket.remoteAddress || 'unknown';
+    if (trustProxy && req.headers['x-forwarded-for']) {
+      clientIp = req.headers['x-forwarded-for'].split(',')[0].trim();
+    }
+    if (!checkRateLimit(`${clientIp}:egress-diag`, 5, 60000)) {
+      res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '429 Too Many Requests: 진단 요청 한도를 초과했습니다.' }));
+      return;
+    }
+
+    if (process.env.ENABLE_EGRESS_DIAGNOSTICS !== 'true') {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ enabled: false, error: '403 Forbidden: Egress diagnostics disabled' }));
+      return;
+    }
+
+    executeEgressDiagnosticsOnce()
+      .then((diagResult) => {
+        if (!res.headersSent) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(diagResult));
+        }
+      })
+      .catch((err) => {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ enabled: true, error: sanitizeDiagMessage(err.message) }));
+        }
+      });
+    return;
+  }
+
+  // 5. 정적 파일 서빙 (path.resolve + path.relative 엄격한 보안 검증)
   let reqPath = parsedUrl.pathname;
   if (reqPath === '/' || reqPath === '') {
     reqPath = '/index.html';
@@ -490,6 +531,9 @@ const EGRESS_DIAG_TARGETS = Object.freeze([
   Object.freeze({ name: 'example.com', url: 'https://example.com/' }),
   Object.freeze({ name: 'api.vworld.kr', url: 'https://api.vworld.kr/' })
 ]);
+
+let egressDiagPromise = null;
+let egressDiagCache = null;
 
 function sanitizeDiagMessage(msg) {
   if (!msg) return 'NONE';
@@ -604,17 +648,40 @@ function probeHttpsTarget(target) {
   });
 }
 
+function executeEgressDiagnosticsOnce() {
+  if (egressDiagCache) {
+    return Promise.resolve(egressDiagCache);
+  }
+  if (egressDiagPromise) {
+    return egressDiagPromise;
+  }
+  egressDiagPromise = (async () => {
+    console.log('[Egress Diag] Starting one-time outbound HTTPS comparison (example.com vs api.vworld.kr)...');
+    const results = [];
+    for (const target of EGRESS_DIAG_TARGETS) {
+      const res = await probeHttpsTarget(target);
+      results.push(res);
+    }
+    console.log('[Egress Diag] Outbound HTTPS comparison finished.');
+    egressDiagCache = {
+      enabled: true,
+      executedAt: new Date().toISOString(),
+      targets: results
+    };
+    return egressDiagCache;
+  })().finally(() => {
+    egressDiagPromise = null;
+  });
+  return egressDiagPromise;
+}
+
 function runEgressDiagnosticsIfEnabled() {
   if (process.env.ENABLE_EGRESS_DIAGNOSTICS !== 'true') {
     return;
   }
   setImmediate(async () => {
     try {
-      console.log('[Egress Diag] Starting one-time outbound HTTPS comparison (example.com vs api.vworld.kr)...');
-      for (const target of EGRESS_DIAG_TARGETS) {
-        await probeHttpsTarget(target);
-      }
-      console.log('[Egress Diag] Outbound HTTPS comparison finished.');
+      await executeEgressDiagnosticsOnce();
     } catch (err) {
       console.error('[Egress Diag] Unexpected error:', sanitizeDiagMessage(err.message));
     }

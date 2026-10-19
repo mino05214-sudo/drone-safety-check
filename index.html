@@ -1496,6 +1496,54 @@
             촬영 장소를 검색하거나 위치를 지정하면 등록된 시설/기관 절차 및 안내를 확인할 수 있습니다.
           </div>
 
+          <!-- 등록된 시설이 아닌 일반 장소일 때의 안내 상자 (STEP 3.31) -->
+          <div id="siteUnregisteredBox" style="display: none;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text);">ℹ️ 일반 장소 안내 (기관 규정 미등록)</span>
+                <span style="font-size: 10.5px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 600;">자체 규정 DB 미등록</span>
+              </div>
+              <div style="font-size: 11.5px; color: #475569; line-height: 1.6; margin-bottom: 10px;">
+                선택하신 장소는 개별 시설 자체 드론 규정(독립기념관·전쟁기념관 등)이 등록되어 있지 않은 일반 지역입니다. 드론 비행 및 촬영 시 다음 4대 핵심 사항을 확인하세요.
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11.5px; line-height: 1.55;">
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+                  <strong style="color: #0f172a;">1. 해당 장소의 기관별 규정 미등록</strong><br>
+                  <span style="color: var(--muted);">현재 해당 장소의 기관별 자체 규정은 등록되어 있지 않으며, 임의의 기관명이나 서류를 안내하지 않습니다.</span>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+                  <strong style="color: #0f172a;">2. 드론원스톱 비행승인 대상 여부 확인</strong><br>
+                  <span style="color: var(--muted);">상단 공역 결과(비행금지구역, 비행제한구역, 관제권) 및 예정 비행고도 150m 이상 여부에 따라 드론원스톱에서 사전 비행승인이 필요한지 확인하세요.</span>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+                  <strong style="color: #0f172a;">3. 항공촬영 신청은 비행승인과 별도 확인</strong><br>
+                  <span style="color: var(--muted);">카메라 등 촬영 장비가 부착된 드론으로 촬영 시, 비행승인과 별도로 드론원스톱을 통해 국방부 항공촬영 허가 대상 여부를 확인해야 합니다.</span>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+                  <strong style="color: #0f172a;">4. 사유지 또는 시설 관리자 별도 협의</strong><br>
+                  <span style="color: var(--muted);">사유지, 국립공원, 문화재보호구역, 주요 시설 등인 경우 토지 소유자 또는 해당 시설물 관리자에게 비행·이착륙 및 촬영에 관한 별도 협의가 필요한지 확인하세요.</span>
+                </div>
+              </div>
+
+              <!-- 바로가기 및 문의 복사 버튼 -->
+              <div class="btn-row" style="margin-top: 10px;">
+                <a href="https://drone.onestop.go.kr" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                  🌐 드론원스톱 바로가기 ↗
+                </a>
+                <button type="button" class="btn-secondary btn-sm" onclick="copyGeneralInquiryText()">
+                  📋 관리자 문의용 7대 질문 복사
+                </button>
+              </div>
+
+              <!-- 관리자 문의용 내용 미리보기 -->
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
+                <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">❓ 시설/소유자 문의 시 권장 질문</div>
+                <div id="generalInquiryPreviewBox" style="font-size: 10.5px; color: var(--muted); background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.5; white-space: pre-line;"></div>
+              </div>
+            </div>
+          </div>
+
           <div id="siteActiveBox" style="display: none;">
             <div class="authority-card-box">
               <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text);" id="siteBoxName">
@@ -1647,6 +1695,17 @@
           </div>
         </div>
 
+        <!-- 공식 제원 출처 및 확인일 표시 영역 (STEP 3.31) -->
+        <div id="droneSpecMetaBox" style="font-size: 11px; color: var(--muted); background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin-top: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+          <div>
+            <strong>공식 출처:</strong> <span id="displayDroneSourceName" style="color: var(--text);">기체 미지정</span>
+          </div>
+          <div>
+            <strong>확인일:</strong> <span id="displayDroneVerifiedAt">-</span>
+            <span id="displayDroneVerificationStatus" style="margin-left: 4px; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #f1f5f9; color: #475569;">미지정</span>
+          </div>
+        </div>
+
         <!-- 2-2. 기체 운용/배터리 구성 조건 경고 상자 -->
         <div id="droneConditionAlert" class="drone-condition-alert">
           <div style="display: flex; gap: 6px; align-items: flex-start;">
@@ -1658,38 +1717,47 @@
           </div>
         </div>
 
-        <!-- 3. 기체 상세 입력 (기체명, 제조사, 최대이륙중량, 자체중량) -->
+        <!-- 3. 기체 상세 입력 (제조사, 기체명, 배터리 구성, 최대이륙중량, 자체중량) -->
         <div class="form-grid-2">
-          <div class="form-group" style="margin-bottom: 8px;">
-            <label class="form-label" for="permitDroneModel">
-              <span>기체명 / 모델</span>
-            </label>
-            <input type="text" id="permitDroneModel" placeholder="예: DJI Mini 4 Pro" oninput="onDroneManualInput()">
-          </div>
           <div class="form-group" style="margin-bottom: 8px;">
             <label class="form-label" for="permitManufacturer">
               <span>제조사</span>
             </label>
             <input type="text" id="permitManufacturer" placeholder="예: DJI, Autel" oninput="onDroneManualInput()">
           </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" for="permitDroneModel">
+              <span>기체명 / 모델</span>
+            </label>
+            <input type="text" id="permitDroneModel" placeholder="예: Mini 4 Pro, EVO Lite+" oninput="onDroneManualInput()">
+          </div>
+        </div>
+
+        <!-- 배터리 구성 입력 필드 (STEP 3.31) -->
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" for="permitBatteryConfig">
+            <span>🔋 배터리 구성 / 운용 형태</span>
+          </label>
+          <input type="text" id="permitBatteryConfig" placeholder="예: 기본 표준 배터리 / 대용량 플러스 배터리 / 추가 장비 장착" oninput="onDroneBatteryConfigInput()">
+          <div class="form-hint">※ 배터리 종류(표준 vs 플러스)나 프로펠러 가드 등 장착 장비에 따라 실제 이륙중량이 250g을 초과하여 4종 자격 대상이 될 수 있습니다.</div>
         </div>
 
         <!-- 최대이륙중량 (실제 숫자 입력) -->
         <div class="form-group" style="margin-bottom: 8px;">
           <label class="form-label" for="permitWeightKg">
-            <span>⚖️ 최대이륙중량 (kg)</span>
-            <span id="weightCategoryBadge" style="font-size: 11px; font-weight: 700; color: var(--success);">
-              250g 이하
+            <span>⚖️ 최대이륙중량 (MTOW, kg)</span>
+            <span id="weightCategoryBadge" style="font-size: 11px; font-weight: 700; color: #b45309;">
+              확인 필요
             </span>
           </label>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <input type="number" id="permitWeightKg" step="0.001" min="0.01" max="1000" placeholder="직접 확인한 MTOW 입력" oninput="onDroneWeightInput()">
-            <button class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(0.249)">249g</button>
-            <button class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(0.866)">866g (EVO Lite+)</button>
-            <button class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(4.310)">4.31kg (Inspire 3)</button>
-            <button class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(26)">26kg (대형)</button>
+            <input type="number" id="permitWeightKg" step="0.001" min="0.01" max="1000" placeholder="직접 확인한 MTOW 입력 (미입력 시 '확인 필요')" oninput="onDroneWeightInput()">
+            <button type="button" class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(0.249)">249g</button>
+            <button type="button" class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(0.866)">866g (EVO Lite+)</button>
+            <button type="button" class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(4.310)">4.31kg (Inspire 3)</button>
+            <button type="button" class="btn-secondary btn-sm" style="flex-shrink: 0;" onclick="setPresetWeight(26)">26kg (대형)</button>
           </div>
-          <div id="weightLawNotice" class="form-hint" style="margin-top: 4px;">※ 250g 이하: 1~4종 조종자 증명 분류 대상 아님</div>
+          <div id="weightLawNotice" class="form-hint" style="margin-top: 4px;">※ 최대이륙중량(MTOW) 미확인 시 조종자 증명 분류가 자동 확정되지 않습니다.</div>
         </div>
 
         <!-- 자체중량(연료 제외) 입력 (25kg 초과 시에만 표출) -->
@@ -1716,11 +1784,11 @@
           </div>
         </details>
 
-        <!-- 4. 조종자 증명 기준 자동 분류 안내 (사용자 직접 선택 불가, 자동 강조) -->
+        <!-- 4. 조종자 증명 기준 자동 분류 안내 (항공안전법 제125조 및 시행규칙 제306조제4항) -->
         <div style="margin-top: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-size: 12px; font-weight: 700; color: var(--text);">📋 조종자 증명 기준 자동 분류</span>
-            <span style="font-size: 10.5px; color: var(--muted);">무게 입력 시 자동 판정</span>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text);">📋 조종자 증명 기준 자동 분류 (항공안전법 제125조 및 시행규칙 제306조제4항)</span>
+            <span style="font-size: 10.5px; color: var(--muted);">MTOW 입력 시 자동 판정</span>
           </div>
           <div class="class-grid">
             <div id="classCard1" class="class-card">
@@ -1728,35 +1796,56 @@
                 <span>1종</span>
                 <span class="class-card-badge">25kg 초과</span>
               </div>
-              <div class="class-card-desc">25kg 초과 + 자체중량 150kg 이하 (학과·실기시험 및 비행경력 필요. 최신 응시요건은 TS국가자격시험에서 확인. 안전성인증 및 지방항공청 비행승인 필수)</div>
+              <div class="class-card-desc">25kg 초과 ~ 자체중량 150kg 이하 (항공안전법 시행규칙 제306조제4항제1호. 비행경력 20시간 + 학과(필기)시험 + 실기시험 합격 필요. 안전성인증 및 지방항공청 비행승인 필수 대상)</div>
             </div>
             <div id="classCard2" class="class-card">
               <div class="class-card-header">
                 <span>2종</span>
                 <span class="class-card-badge">7kg 초과 ~ 25kg 이하</span>
               </div>
-              <div class="class-card-desc">7kg 초과 ~ 25kg 이하 (학과·실기시험 및 비행경력 필요. 최신 응시요건은 TS국가자격시험에서 확인. 초경량비행장치 기체신고 의무)</div>
+              <div class="class-card-desc">7kg 초과 ~ 25kg 이하 (항공안전법 시행규칙 제306조제4항제2호. 비행경력 10시간 + 학과(필기)시험 + 약식 실기시험 합격 필요. 초경량비행장치 기체신고 의무 대상)</div>
             </div>
             <div id="classCard3" class="class-card">
               <div class="class-card-header">
                 <span>3종</span>
                 <span class="class-card-badge">2kg 초과 ~ 7kg 이하</span>
               </div>
-              <div class="class-card-desc">2kg 초과 ~ 7kg 이하 (학과시험 및 비행경력 필요. 최신 응시요건은 TS국가자격시험에서 확인. 초경량비행장치 기체신고 의무)</div>
+              <div class="class-card-desc">2kg 초과 ~ 7kg 이하 (항공안전법 시행규칙 제306조제4항제3호. 비행경력 6시간 + 학과(필기)시험 합격 필요. 실기시험 없음. 초경량비행장치 기체신고 의무 대상)</div>
             </div>
             <div id="classCard4" class="class-card">
               <div class="class-card-header">
                 <span>4종</span>
                 <span class="class-card-badge">250g 초과 ~ 2kg 이하</span>
               </div>
-              <div class="class-card-desc">한국교통안전공단(TS) 배움터(edu.kotsa.or.kr) 온라인 교육(6시간) 이수 증명 필요 (실기시험 없음. 비사업용 기체신고 면제 대상 여부 확인)</div>
+              <div class="class-card-desc">250g 초과 ~ 2kg 이하 (항공안전법 시행규칙 제306조제4항제4호. 한국교통안전공단(TS) 배움터 온라인 교육 6시간 이수 증명 필요. 시험 없음. 비사업용 기체신고 면제 대상 여부 확인)</div>
             </div>
-            <div id="classCardNone" class="class-card active">
+            <div id="classCardNone" class="class-card">
               <div class="class-card-header">
                 <span>250g 이하</span>
                 <span class="class-card-badge">조종자 증명 제외</span>
               </div>
-              <div class="class-card-desc">최대이륙중량 250g 이하로 1~4종 조종자 증명 분류 대상에서 제외됩니다. (단, 비행금지구역 비행승인 및 안전수칙은 동일 준수)</div>
+              <div class="class-card-desc">최대이륙중량 250g 이하로 1~4종 조종자 증명 취득 대상에서 제외됩니다. (항공안전법 제125조제1항 단서 및 시행규칙 제306조제1항제4호가목. 단, 비행승인·촬영허가 및 안전수칙은 무게와 무관하게 동일 준수)</div>
+            </div>
+          </div>
+
+          <!-- 3대 행정 제도 명확한 구분 안내 박스 (STEP 3.31) -->
+          <div style="margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+              ⚖️ 조종자 증명(자격) vs 기체신고 vs 비행승인·촬영허가 구분 기준
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; line-height: 1.5; color: #475569;">
+              <div>
+                <strong style="color: #0f172a;">1. 조종자 증명 (사람의 자격 요건):</strong><br>
+                항공안전법 제125조 및 시행규칙 제306조에 따른 조종 자격입니다. 최대이륙중량 250g 이하는 자격 취득 대상에서 제외되며(시행규칙 제306조제1항제4호가목), 250g 초과 무인동력비행장치는 최대이륙중량에 따라 1~4종으로 구분됩니다(시행규칙 제306조제4항). 4종은 TS 배움터 온라인 교육(6시간), 3종 이상은 비행경력 및 시험 합격이 필요합니다.
+              </div>
+              <div>
+                <strong style="color: #0f172a;">2. 기체 신고 (기체의 등록 의무):</strong><br>
+                비사업용 2kg 초과 기체 및 사업용 모든 기체는 드론원스톱에 기체를 신고해야 합니다. (비사업용 2kg 이하 기체는 신고 의무가 면제됩니다)
+              </div>
+              <div>
+                <strong style="color: #0f172a;">3. 비행승인 및 항공촬영 허가 (운항별 사전 허가):</strong><br>
+                조종자 자격이나 기체신고 여부와 무관하게, 비행금지구역·비행제한구역·관제권 또는 150m 이상 비행 시 사전 비행승인이 필수이며, 카메라가 부착된 드론으로 촬영 시 국방부 항공촬영 허가를 별도로 받아야 합니다.
+              </div>
             </div>
           </div>
         </div>
@@ -4267,6 +4356,7 @@
     let droneProfile = {
       model: "",
       manufacturer: "",
+      batteryConfig: "",
       aircraftWeightKg: null,
       takeoffWeightKg: null,
       maxTakeoffWeightKg: null,
@@ -4541,7 +4631,10 @@
           '<span style="font-size:11px; color:#64748b; margin-top:4px; display:inline-block;">입력 검색어: "<strong>' + escapeHtml(rawKeyword) + '</strong>"</span>' +
           '<div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0; font-size:11px; color:#475569;">' +
             '💡 <strong>검색 예시:</strong> Mini 4 Pro / Mini 4 / Air 3 / Mavic 3 / 미니4<br>' +
-            '<span style="color:var(--muted); font-size:10.5px; margin-top:3px; display:inline-block;">등록되지 않은 기체는 아래에서 직접 모델명과 최대이륙중량(MTOW)을 입력하세요.</span>' +
+            '<span style="color:var(--muted); font-size:10.5px; margin-top:3px; display:inline-block;">공식 DB에 등록되지 않은 기체는 아래 입력창에서 제조사, 모델명, 배터리 구성, MTOW를 직접 입력하세요.</span>' +
+          '</div>' +
+          '<div style="margin-top:10px;">' +
+            '<button type="button" class="btn-primary btn-sm" onclick="focusManualDroneInput()" style="padding:6px 14px; font-size:11.5px;">✍️ 기체 정보 직접 입력하기</button>' +
           '</div>' +
         '</div>';
         return;
@@ -4615,17 +4708,20 @@
       droneProfile.hasConditionalWeight = !!d.hasConditionalWeight;
       droneProfile.conditionalNotice = d.conditionalNotice || "";
       droneProfile.maxTakeoffWeightConditions = d.maxTakeoffWeightConditions || [];
+      droneProfile.batteryConfig = d.batteryConfig || "";
 
       // 입력 폼에 값 동기화
       const elModel = document.getElementById("permitDroneModel");
       const elMfr = document.getElementById("permitManufacturer");
       const elWeight = document.getElementById("permitWeightKg");
       const elSelfWeight = document.getElementById("permitSelfWeightKg");
+      const elBattery = document.getElementById("permitBatteryConfig");
 
       if (elModel) elModel.value = d.model;
       if (elMfr) elMfr.value = d.manufacturer;
       if (elWeight) elWeight.value = (d.maxTakeoffWeightKg !== null) ? d.maxTakeoffWeightKg : "";
       if (elSelfWeight) elSelfWeight.value = (d.selfWeightKg !== null) ? d.selfWeightKg : "";
+      if (elBattery) elBattery.value = droneProfile.batteryConfig;
 
       // 검색 결과 접기
       const listEl = document.getElementById("droneSearchResultsList");
@@ -4642,12 +4738,33 @@
       showToast('🚁 "' + d.model + '" 기체 정보가 적용되었습니다.');
     }
 
+    // 직접 입력 폼으로 포커스 이동 헬퍼 (STEP 3.31)
+    function focusManualDroneInput() {
+      const elMfr = document.getElementById("permitManufacturer");
+      const elModel = document.getElementById("permitDroneModel");
+      if (elMfr) {
+        elMfr.focus();
+        elMfr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (elModel) {
+        elModel.focus();
+        elModel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    // 배터리 구성 입력 핸들러 (STEP 3.31)
+    function onDroneBatteryConfigInput() {
+      const elBattery = document.getElementById("permitBatteryConfig");
+      droneProfile.batteryConfig = elBattery ? elBattery.value.trim() : "";
+      savePermitProfile();
+    }
+
     // Section 6: 사용자 직접 입력 시 이전 기체 데이터 완전 제거
     function onDroneManualInput() {
       const elModel = document.getElementById("permitDroneModel");
       const elMfr = document.getElementById("permitManufacturer");
       const elWeight = document.getElementById("permitWeightKg");
       const elSelfWeight = document.getElementById("permitSelfWeightKg");
+      const elBattery = document.getElementById("permitBatteryConfig");
 
       const modelVal = elModel ? elModel.value.trim() : "";
       const mfrVal = elMfr ? elMfr.value.trim() : "";
@@ -4675,14 +4792,17 @@
         droneProfile.hasConditionalWeight = !!matched.hasConditionalWeight;
         droneProfile.conditionalNotice = matched.conditionalNotice || "";
         droneProfile.maxTakeoffWeightConditions = matched.maxTakeoffWeightConditions || [];
+        droneProfile.batteryConfig = matched.batteryConfig || "";
 
         if (elMfr && !mfrVal) elMfr.value = matched.manufacturer;
         if (elWeight) elWeight.value = (matched.maxTakeoffWeightKg !== null) ? matched.maxTakeoffWeightKg : "";
         if (elSelfWeight) elSelfWeight.value = (matched.selfWeightKg !== null) ? matched.selfWeightKg : "";
+        if (elBattery && !elBattery.value) elBattery.value = droneProfile.batteryConfig;
       } else {
         // 이전 기체 데이터 누출 방지 완전 제거
         droneProfile.model = modelVal;
         droneProfile.manufacturer = mfrVal;
+        droneProfile.batteryConfig = elBattery ? elBattery.value.trim() : "";
         droneProfile.aircraftWeightKg = null;
         droneProfile.takeoffWeightKg = null;
         droneProfile.maxTakeoffWeightKg = null;
@@ -4951,6 +5071,45 @@
         }
       }
 
+      // 5-1) 공식 제원 출처 및 확인일 메타 박스 갱신 (STEP 3.31)
+      const elDispSrcName = document.getElementById("displayDroneSourceName");
+      const elDispVerifiedAt = document.getElementById("displayDroneVerifiedAt");
+      const elDispVerifBadge = document.getElementById("displayDroneVerificationStatus");
+
+      if (elDispSrcName && elDispVerifiedAt && elDispVerifBadge) {
+        if (isModelEmpty) {
+          elDispSrcName.innerText = "기체 미지정";
+          elDispVerifiedAt.innerText = "-";
+          elDispVerifBadge.innerText = "미지정";
+          elDispVerifBadge.style.background = "#f1f5f9";
+          elDispVerifBadge.style.color = "#475569";
+        } else if (droneProfile.verificationStatus === "verified") {
+          elDispSrcName.innerText = droneProfile.sourceName || "공식 기술 사양";
+          elDispVerifiedAt.innerText = droneProfile.verifiedAt || "확인됨";
+          elDispVerifBadge.innerText = "공식 검증 (verified)";
+          elDispVerifBadge.style.background = "#d1fae5";
+          elDispVerifBadge.style.color = "#065f46";
+        } else if (droneProfile.verificationStatus === "verified_conditional") {
+          elDispSrcName.innerText = droneProfile.sourceName || "공식 기술 사양";
+          elDispVerifiedAt.innerText = droneProfile.verifiedAt || droneProfile.lastReviewedAt || "확인됨";
+          elDispVerifBadge.innerText = "조건부 확인 (needs_review)";
+          elDispVerifBadge.style.background = "#fef3c7";
+          elDispVerifBadge.style.color = "#b45309";
+        } else if (droneProfile.verificationStatus === "user_input") {
+          elDispSrcName.innerText = "사용자 직접 입력";
+          elDispVerifiedAt.innerText = "공식 확인일 없음";
+          elDispVerifBadge.innerText = "직접 입력 (user_input)";
+          elDispVerifBadge.style.background = "#e0f2fe";
+          elDispVerifBadge.style.color = "#0369a1";
+        } else {
+          elDispSrcName.innerText = droneProfile.sourceName || "공식 제원 미확인";
+          elDispVerifiedAt.innerText = droneProfile.lastReviewedAt ? ("검토: " + droneProfile.lastReviewedAt) : "-";
+          elDispVerifBadge.innerText = "확인 필요 (needs_review)";
+          elDispVerifBadge.style.background = "#fef3c7";
+          elDispVerifBadge.style.color = "#b45309";
+        }
+      }
+
       // 6) 1~4종 기준 안내 카드 하이라이트
       const cardMap = {
         class1: document.getElementById("classCard1"),
@@ -5076,6 +5235,7 @@
       if (hasSavedModel) {
         droneProfile.model = saved.droneModel || saved.model || "";
         droneProfile.manufacturer = saved.manufacturer || "";
+        droneProfile.batteryConfig = saved.batteryConfig || "";
         droneProfile.aircraftWeightKg = (saved.aircraftWeightKg !== undefined) ? saved.aircraftWeightKg : null;
         droneProfile.takeoffWeightKg = (saved.takeoffWeightKg !== undefined) ? saved.takeoffWeightKg : null;
         droneProfile.maxTakeoffWeightKg = initialMtow;
@@ -5117,11 +5277,13 @@
           droneProfile.hasConditionalWeight = !!matched.hasConditionalWeight;
           droneProfile.conditionalNotice = matched.conditionalNotice || "";
           droneProfile.maxTakeoffWeightConditions = matched.maxTakeoffWeightConditions || [];
+          if (!droneProfile.batteryConfig) droneProfile.batteryConfig = matched.batteryConfig || "";
         }
       } else {
         // Section 1: 신규 사용자 초기 상태 (모두 빈값 / null / unknown)
         droneProfile.model = "";
         droneProfile.manufacturer = "";
+        droneProfile.batteryConfig = "";
         droneProfile.aircraftWeightKg = null;
         droneProfile.takeoffWeightKg = null;
         droneProfile.maxTakeoffWeightKg = null;
@@ -5148,6 +5310,7 @@
       // DOM 요소에 값 반영
       const elModel = document.getElementById("permitDroneModel");
       const elMfr = document.getElementById("permitManufacturer");
+      const elBattery = document.getElementById("permitBatteryConfig");
       const elWeight = document.getElementById("permitWeightKg");
       const elSelfWeight = document.getElementById("permitSelfWeightKg");
       const elAlt = document.getElementById("permitAltitude");
@@ -5156,6 +5319,7 @@
 
       if (elModel) elModel.value = droneProfile.model;
       if (elMfr) elMfr.value = droneProfile.manufacturer;
+      if (elBattery) elBattery.value = droneProfile.batteryConfig || "";
       if (elWeight) elWeight.value = (droneProfile.maxTakeoffWeightKg !== null) ? droneProfile.maxTakeoffWeightKg : "";
       if (elSelfWeight) elSelfWeight.value = (droneProfile.selfWeightKg !== null) ? droneProfile.selfWeightKg : "";
       if (elAlt) elAlt.value = permitProfile.altitude;
@@ -5225,6 +5389,7 @@
       const payload = {
         droneModel: droneProfile.model,
         manufacturer: droneProfile.manufacturer,
+        batteryConfig: droneProfile.batteryConfig || "",
         aircraftWeightKg: droneProfile.aircraftWeightKg,
         takeoffWeightKg: droneProfile.takeoffWeightKg,
         maxTakeoffWeightKg: droneProfile.maxTakeoffWeightKg,
@@ -5495,59 +5660,109 @@
     function renderFilmingSiteDetails() {
       const siteBadge = document.getElementById("siteStatusBadge");
       const emptyNotice = document.getElementById("siteEmptyNotice");
+      const unregisteredBox = document.getElementById("siteUnregisteredBox");
       const activeBox = document.getElementById("siteActiveBox");
 
       if (!siteBadge || !emptyNotice || !activeBox) return;
 
-      if (!selectedFilmingSite) {
-        siteBadge.innerText = candidateFilmingSite ? "후보 감지됨 (확인 필요)" : "장소 확인 대기";
-        siteBadge.style.background = candidateFilmingSite ? "#fef3c7" : "#f1f5f9";
-        siteBadge.style.color = candidateFilmingSite ? "#b45309" : "#475569";
+      const hasLoc = (locationState.latitude !== null && locationState.longitude !== null);
+
+      if (!hasLoc) {
+        siteBadge.innerText = "장소 확인 대기";
+        siteBadge.style.background = "#f1f5f9";
+        siteBadge.style.color = "#475569";
         emptyNotice.style.display = "block";
+        if (unregisteredBox) unregisteredBox.style.display = "none";
         activeBox.style.display = "none";
         return;
       }
 
-      const site = selectedFilmingSite;
-      siteBadge.innerText = '🏛️ ' + site.name + ' 확인됨';
-      siteBadge.style.background = "#d1fae5";
-      siteBadge.style.color = "#065f46";
+      // 위치가 지정되어 있는 경우
+      if (selectedFilmingSite) {
+        const site = selectedFilmingSite;
+        siteBadge.innerText = '🏛️ ' + site.name + ' 확인됨';
+        siteBadge.style.background = "#d1fae5";
+        siteBadge.style.color = "#065f46";
 
-      emptyNotice.style.display = "none";
-      activeBox.style.display = "block";
+        emptyNotice.style.display = "none";
+        if (unregisteredBox) unregisteredBox.style.display = "none";
+        activeBox.style.display = "block";
 
-      document.getElementById("siteBoxName").innerText = site.name + " 시설 촬영 정보";
-      document.getElementById("siteBoxPermission").innerText = site.institutionPermission;
-      document.getElementById("siteBoxDept").innerText = site.department || "담당 부서 문의";
-      document.getElementById("siteBoxContact").innerText = site.tel || "유선 문의 필요";
-      document.getElementById("siteBoxEmail").innerText = site.email || "🟡 기관 사전 문의 필요 (공식 이메일 미확인)";
-      document.getElementById("siteBoxDeadline").innerText = site.deadline || "기관 사전 확인 필요";
+        document.getElementById("siteBoxName").innerText = site.name + " 시설 촬영 정보";
+        document.getElementById("siteBoxPermission").innerText = site.institutionPermission;
+        document.getElementById("siteBoxDept").innerText = site.department || "담당 부서 문의";
+        document.getElementById("siteBoxContact").innerText = site.tel || "유선 문의 필요";
+        document.getElementById("siteBoxEmail").innerText = site.email || "🟡 기관 사전 문의 필요 (공식 이메일 미확인)";
+        document.getElementById("siteBoxDeadline").innerText = site.deadline || "기관 사전 확인 필요";
 
-      const btnCall = document.getElementById("btnCallAuth");
-      if (btnCall) {
-        if (site.tel) {
-          btnCall.href = "tel:" + site.tel.replace(/[^0-9]/g, '');
-          btnCall.style.display = "inline-flex";
-        } else {
-          btnCall.style.display = "none";
+        const btnCall = document.getElementById("btnCallAuth");
+        if (btnCall) {
+          if (site.tel) {
+            btnCall.href = "tel:" + site.tel.replace(/[^0-9]/g, '');
+            btnCall.style.display = "inline-flex";
+          } else {
+            btnCall.style.display = "none";
+          }
+        }
+
+        const btnUrl = document.getElementById("btnUrlAuth");
+        if (btnUrl) {
+          btnUrl.href = site.officialUrl || "#";
+        }
+
+        const inquiryBox = document.getElementById("inquiryPreviewBox");
+        if (inquiryBox) {
+          inquiryBox.innerText = generateInquiryQuestions(site);
+        }
+
+        renderDocumentRequirements(site.documents || []);
+
+        const footer = document.getElementById("siteMetaFooter");
+        if (footer) {
+          footer.innerText = "출처: " + site.source + " · 확인일: " + site.verifiedAt;
+        }
+      } else if (candidateFilmingSite) {
+        siteBadge.innerText = "후보 감지됨 (확인 필요)";
+        siteBadge.style.background = "#fef3c7";
+        siteBadge.style.color = "#b45309";
+
+        emptyNotice.style.display = "none";
+        activeBox.style.display = "none";
+        if (unregisteredBox) {
+          unregisteredBox.style.display = "block";
+          const preview = document.getElementById("generalInquiryPreviewBox");
+          if (preview) {
+            preview.innerText = generateInquiryQuestions(null);
+          }
+        }
+      } else {
+        // 등록된 촬영 시설 후보가 없는 일반 장소 (STEP 3.31)
+        siteBadge.innerText = "일반 장소 (기관 규정 미등록)";
+        siteBadge.style.background = "#f1f5f9";
+        siteBadge.style.color = "#475569";
+
+        emptyNotice.style.display = "none";
+        activeBox.style.display = "none";
+        if (unregisteredBox) {
+          unregisteredBox.style.display = "block";
+          const preview = document.getElementById("generalInquiryPreviewBox");
+          if (preview) {
+            preview.innerText = generateInquiryQuestions(null);
+          }
         }
       }
+    }
 
-      const btnUrl = document.getElementById("btnUrlAuth");
-      if (btnUrl) {
-        btnUrl.href = site.officialUrl || "#";
-      }
-
-      const inquiryBox = document.getElementById("inquiryPreviewBox");
-      if (inquiryBox) {
-        inquiryBox.innerText = generateInquiryQuestions(site);
-      }
-
-      renderDocumentRequirements(site.documents || []);
-
-      const footer = document.getElementById("siteMetaFooter");
-      if (footer) {
-        footer.innerText = "출처: " + site.source + " · 확인일: " + site.verifiedAt;
+    function copyGeneralInquiryText() {
+      const text = generateInquiryQuestions(null);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast("📋 관리자 문의용 7대 질문이 복사되었습니다.");
+        }).catch(() => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
       }
     }
 

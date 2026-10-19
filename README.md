@@ -25,7 +25,8 @@
    - 임시비행금지공역: 드론원스톱(Drone One-Stop) 공식 포털 실시간 확인 카드 및 바로가기 제공
    - Turf.js 기반 포인트-인-폴리곤(Pip) 초고속 로컬 안전 판정 (140개 핵심 공역)
 2. **🔍 통합 주소 및 장소 검색**
-   - VWorld 통합 검색 API 연동 (명칭, 도로명, 지번 검색 지원)
+   - Kakao Local REST API 연동 (명칭, 도로명, 지번 검색 및 좌표 역지오코딩 지원)
+   - 클라우드 배포 환경의 VWorld 응답 지연/에러(502/ECONNRESET, WAF 등으로 추정) 문제를 해결하여 Render 운영 환경에서 안정적인 200ms대 검색 제공
 3. **🌤️ 실시간 기상 및 풍속 안전 분석**
    - Open-Meteo 기반 현재 기온, 습도, 풍속, 돌풍(Gust), 날씨 코드 분석
    - 풍속별 비행 위험 등급 자동 경고
@@ -44,8 +45,12 @@
 * **Map & GIS**: Leaflet.js (v1.9.4), Turf.js (v7.x)
 * **Backend**: Node.js (v16.0.0 이상)
   * **Zero External Dependencies**: 외부 npm 라이브러리(`node_modules`) 없이 Node.js 내장 모듈(`http`, `https`, `fs`, `path`, `url`)만으로 서버 구현
+* **External APIs**:
+  * Kakao Local REST API (키워드 장소 검색, 도로명/지번 주소 검색, 좌표 역지오코딩)
+  * VWorld Open API (4대 핵심 공역 WFS 프록시)
+  * Open-Meteo (실시간 기상 데이터)
 * **Security**:
-  * VWorld API Key 브라우저 비노출 (서버 프록시 중계)
+  * Kakao & VWorld API Key 브라우저 비노출 (서버 프록시 중계)
   * Same-Origin / Trusted Host 기반 엄격한 CORS 제어
   * IP 기반 인메모리 요청 제한 (Rate Limiting: 60회/분)
   * BBOX 크기 검증 (과도한 쿼리 차단)
@@ -89,7 +94,8 @@ Render 대시보드의 **Environment Variables** 탭에 다음 변수를 등록�
 
 | 변수명 | 필수 여부 | 설명 | 예시 |
 | :--- | :---: | :--- | :--- |
-| **`VWORLD_API_KEY`** | **필수** | VWorld 오픈API 인증키 | `발급받은API키` |
+| **`KAKAO_REST_API_KEY`** | **필수** | Kakao Developers 콘솔에서 발급받은 REST API 키 (장소/주소/역지오코딩용) | `발급받은REST키` |
+| **`VWORLD_API_KEY`** | **필수** | VWorld 오픈API 인증키 (공역 WFS 프록시용) | `발급받은API키` |
 | **`VWORLD_DOMAIN`** | 선택 | VWorld 발급 도메인 | `your-app.onrender.com` |
 | **`TRUST_PROXY`** | 권장 | Render 프록시 환경 IP 감지 | `true` |
 
@@ -126,9 +132,11 @@ Render 대시보드의 **Environment Variables** 탭에 다음 변수를 등록�
 
 * [x] `node --check server.js` 문법 무결성 검증 통과
 * [x] HTTP 200 정상 응답 및 정적 파일 무결성 확인
-* [x] 정적 GeoJSON 140개 공역 무결성 및 Turf.js 판정 테스트 통과 (`scratch/test_airspace_geojson.js`, `scratch/test_turf_decision.mjs`)
-* [x] 주소 검색 3단계 체인(place → ROAD → PARCEL) 및 역지오코딩 복구 검증 통과
+* [x] 정적 GeoJSON 140개 공역 로드 및 렌더링 표시 확인 (※ 공역 데이터 최신성 및 판정 정확성 정밀 검증은 지속 과제로 구분 관리)
+* [x] STEP 3.25: Kakao Local API 전환 및 Render 배포 완료 (장소/도로명/지번 검색 및 역지오코딩 실서버 HTTP 200 OK)
+* [x] STEP 3.28: 임시 Egress 진단 코드 및 엔드포인트 안전 제거, 전수 회귀 테스트 통과
+* [x] 스마트폰 실기기 환경 검색 결과 마커 표시 확인
+* [ ] **미해결 항목(Unresolved)**: 스마트폰 실기기 환경에서 관찰된 위치 오차 현상 (원인 미확정 상태로 원인 규명 및 정밀 조사 예정)
 * [x] 드론 검색 알고리즘 100% 통과 (`scratch/test_drone_search.js`)
 * [x] 동시성 및 Rate Limit 방어 테스트 통과 (`scratch/test_concurrency_and_security.js`)
-* [x] 폴리곤 클릭 및 마커 연동 검증 통과 (`scratch/verify_polygon_click_fix.js`)
 * [x] XSS, Path Traversal, BBOX 유효성 등 보안 테스트 통과 (`scratch/verify_audit3.js`)

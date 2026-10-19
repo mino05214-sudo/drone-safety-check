@@ -4,6 +4,52 @@
 
 ---
 
+## [v1.6.1] - 2026-10-19 (STEP 3.28)
+### 🧹 임시 Egress 진단 코드 안전 제거 및 전수 회귀 테스트
+* **Date**: 2026-10-19
+* **STEP**: STEP 3.28
+* **Task**: VWorld 경로별 연결 조사를 위해 임시 추가했던 Egress 진단 코드 안전 제거 및 회귀 무결성 검증
+* **AI / Role**: Antigravity Assistant (Pair Programming)
+* **Diagnosis Summary**:
+  - *확인된 사실*: Render 배포 환경에서 VWorld 루트 및 `/req/address`는 `ECONNRESET`, `/req/search` 및 `/req/wfs`는 `502 Bad Gateway` 응답을 반환함 (대조군 `example.com`은 200 OK).
+  - *추정 원인*: VWorld 측 WAF(방화벽) 또는 클라우드 호스팅 IP 대역 차단 가능성 등으로 추정(단정하지 않고 분석).
+* **Implementation**:
+  - `server.js`에서 임시 진단 엔드포인트 `GET /api/egress-diagnostics` 및 Rate Limit 라우트 검사 제거.
+  - 진단 헬퍼 함수 7개(`getEgressDiagTargets`, `sanitizeDiagMessage`, `probeHttpsTarget`, `executeEgressDiagnosticsOnce`, `runEgressDiagnosticsIfEnabled` 등 ~280줄) 전면 제거.
+  - `ENABLE_EGRESS_DIAGNOSTICS` 환경변수 처리 및 서버 기동 시 백그라운드 프로브 호출 제거.
+  - 기존 핵심 프록시 엔드포인트(`/api/search`, `/api/reverse`, `/api/wfs`) 및 정적 파일 서빙 100% 무결성 유지.
+* **Verification**:
+  - `node --check server.js`: 문법 에러 0건 PASS.
+  - `git diff --check`: 공백/포맷 에러 0건 PASS.
+  - Kakao 응답 매핑 단위 테스트 (`scratch/test_kakao_integration.mjs`): 20/20 PASS.
+  - HTTP 서버 통합 테스트 (`scratch/test_server_http.mjs`): 13/13 PASS.
+  - 보안/API키 비노출 검증 (`scratch/test_mock_kakao_proxy.mjs`): PASS.
+  - Leaflet + OpenStreetMap 메인 지도 유지 및 스마트폰 위치 오차 미해결 과제 보존.
+
+---
+
+## [v1.6.0] - 2026-10-19 (STEP 3.24 ~ 3.26)
+### 🔍 Kakao Local REST API 전환 및 Render 배포 완료, 위치 오차 미해결 기록
+* **Date**: 2026-10-19
+* **STEP**: STEP 3.24 ~ 3.26
+* **Task**: VWorld 클라우드 아웃바운드 차단 해결을 위한 Kakao Local API 프록시 전환 및 Render 배포, 실서버 검증 및 위치 오차 기록
+* **AI / Role**: Antigravity Assistant (Pair Programming)
+* **Finding**: Render 등 클라우드 호스팅 환경에서 VWorld의 Search 및 WFS/Address 엔드포인트가 실제 진단 시 `ECONNRESET` 및 `502 Bad Gateway` 응답을 반환함을 확인(원인은 WAF/게이트웨이 차단 등으로 추정).
+* **Implementation**:
+  * `server.js`의 `/api/search` 및 `/api/reverse`를 Kakao Local REST API 프록시(`keyword.json`, `address.json`, `coord2address.json`)로 전면 교체.
+  * 기존 `index.html`이 기대하는 VWorld 규격(`title`, `point.x`, `point.y`, `address.road`, `address.parcel`, `address.bldnm`)으로 서버에서 자동 변환.
+  * 공역 WFS 프록시(`/api/wfs`, `VWORLD_API_KEY`) 및 정적 140개 공역 GeoJSON 데이터 보존.
+  * `process.env.KAKAO_REST_API_KEY` 환경변수 주입 체계 구축.
+* **Verification**:
+  * **실제 Render 프로덕션 라이브 테스트**: 장소 검색(`HTTP 200`, 581ms), 도로명 검색(`HTTP 200`), 지번 검색(`HTTP 200`), 좌표 역지오코딩(`HTTP 200`, 240ms) 전 항목 성공 확인.
+  * **스마트폰 실기기 검증**: 스마트폰 모바일 브라우저에서 검색 결과 선택 시 지도상 마커 정상 표출 확인.
+  * **모의/단위 테스트**: 매핑 단위 테스트(20/20 PASS), 서버 HTTP 엔드포인트 통합 테스트(13/13 PASS), API 키 비노출 보안 검증 PASS.
+* **Unresolved Issue (미해결 항목)**: 스마트폰 실기기 환경에서 관찰된 위치 오차 현상을 미해결 과제로 기록 (원인 미확정, 후속 정밀 조사 예정).
+* **Airspace Distinction (공역 구분)**: 정적 140개 공역 '로드 및 UI 표시'와 국토부 AIP 대비 '공역 데이터 최신성 및 판정 정확성 검증'을 명확히 구분 관리.
+* **Commit**: `f4395d1`
+
+---
+
 ## [v1.5.0] - 2026-10-08 (STEP 3.8)
 ### 🛠️ 주소 검색 category 규격 복구 및 역지오코딩 파싱 정상화
 * **Date**: 2026-10-08

@@ -237,7 +237,65 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. VWorld 장소/주소 검색 프록시 엔드포인트 (/api/search)
+  // Kakao Local REST API 전용 요청 유틸리티
+  function requestKakaoApi(endpointPath, queryParams, apiKey) {
+    return new Promise((resolve, reject) => {
+      const searchParams = new URLSearchParams(queryParams);
+      const options = {
+        hostname: 'dapi.kakao.com',
+        port: 443,
+        path: `${endpointPath}?${searchParams.toString()}`,
+        method: 'GET',
+        headers: {
+          'Authorization': `KakaoAK ${apiKey}`,
+          'User-Agent': 'DroneSafetyCheck/1.0',
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      };
+
+      let timeoutTriggered = false;
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', chunk => {
+          if (data.length < 524288) { // 최대 512KB 제한
+            data += chunk;
+          }
+        });
+        res.on('end', () => {
+          let parsed = null;
+          try {
+            parsed = JSON.parse(data);
+          } catch (e) {
+            return reject(new Error('Kakao API 반환 데이터 JSON 파싱 실패'));
+          }
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            data: parsed
+          });
+        });
+      });
+
+      req.on('timeout', () => {
+        timeoutTriggered = true;
+        req.destroy();
+        const err = new Error('Kakao API timeout (10s)');
+        err.code = 'ETIMEDOUT';
+        reject(err);
+      });
+
+      req.on('error', (err) => {
+        if (timeoutTriggered) return;
+        reject(err);
+      });
+
+      req.end();
+    });
+  }
+
+  // 2. Kakao 장소/주소 검색 프록시 엔드포인트 (/api/search)
   if (parsedUrl.pathname === '/api/search') {
     const query = parsedUrl.query;
     const searchKeyword = (query.query || query.q || '').trim();
@@ -272,154 +330,306 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const vworldApiKey = process.env.VWORLD_API_KEY;
-    const vworldDomain = process.env.VWORLD_DOMAIN || 'localhost';
-
-    if (!vworldApiKey) {
+    const kakaoApiKey = (process.env.KAKAO_REST_API_KEY || '').trim();
+    if (!kakaoApiKey) {
+      console.error('[Server Error] KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.');
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '서버 환경변수(VWORLD_API_KEY)가 설정되지 않았습니다.' }));
+      res.end(JSON.stringify({
+        error: '서버 환경변수(KAKAO_REST_API_KEY)가 설정되지 않았습니다.',
+        response: { status: 'ERROR', error: { text: 'KAKAO_REST_API_KEY_NOT_CONFIGURED' } }
+      }));
       return;
     }
 
-    const targetParams = new URLSearchParams({
-      service: 'search',
-      request: 'search',
-      version: '2.0',
-      crs: 'EPSG:4326',
-      size: '5',
-      page: '1',
-      query: searchKeyword,
-      type: searchType,
-      format: 'json',
-      errorformat: 'json',
-      key: vworldApiKey.trim(),
-      domain: vworldDomain.trim()
-    });
-
-    if (searchCategory) {
-      targetParams.set('category', searchCategory);
-    }
-
-    const targetUrl = `https://api.vworld.kr/req/search?${targetParams.toString()}`;
-    console.log(`[Proxy] Search Forwarding -> Type: ${searchType}${searchCategory ? ` (${searchCategory})` : ''}, Query: ${searchKeyword.slice(0, 20)}`);
-
     const startTime = Date.now();
-    let timeoutTriggered = false;
+    console.log(`[Proxy] Kakao Search Forwarding -> Type: ${searchType}${searchCategory ? ` (${searchCategory})` : ''}, Length: ${searchKeyword.length}`);
 
-    const proxyReq = https.get(targetUrl, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'DroneSafetyCheck/1.0',
-        'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
-      }
-    }, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, {
-        'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
-      });
-      proxyRes.pipe(res);
-    });
+    (async () => {
+      try {
+        if (searchType === 'place') {
+          // Kakao 장소명(키워드) 검색
+          const kakaoRes = await requestKakaoApi(
+            '/v2/local/search/keyword.json',
+            { query: searchKeyword, size: '15' },
+            kakaoApiKey
+          );
 
-    proxyReq.on('timeout', () => {
-      timeoutTriggered = true;
-      const elapsedMs = Date.now() - startTime;
-      console.error(`[Proxy Timeout - Search] elapsed=${elapsedMs}ms timeoutTriggered=${timeoutTriggered}`);
-      proxyReq.destroy();
-      if (!res.headersSent) {
-        res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: '504 Gateway Timeout: VWorld 검색 서버 응답 시간 초과 (10초)' }));
-      }
-    });
+          if (kakaoRes.statusCode !== 200) {
+            console.error(`[Proxy Error - Kakao Search Keyword] HTTP ${kakaoRes.statusCode}`);
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: `Kakao 장소 검색 API 오류 (HTTP ${kakaoRes.statusCode})`,
+              response: { status: 'ERROR', error: { text: 'KAKAO_API_ERROR', code: kakaoRes.statusCode } }
+            }));
+            return;
+          }
 
-    proxyReq.on('error', (err) => {
-      const elapsedMs = Date.now() - startTime;
-      const cause = timeoutTriggered ? 'AFTER_LOCAL_TIMEOUT' : 'REMOTE_OR_NETWORK_ERROR';
-      console.error(
-        `[Proxy Error - Search] cause=${cause} timeoutTriggered=${timeoutTriggered} elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`
-      );
-      if (!res.headersSent) {
-        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld 검색 요청 실패' }));
+          const docs = (kakaoRes.data && Array.isArray(kakaoRes.data.documents)) ? kakaoRes.data.documents : [];
+          const items = docs.map(doc => {
+            const placeName = (doc.place_name || '').trim();
+            const roadAddr = (doc.road_address_name || '').trim();
+            const parcelAddr = (doc.address_name || '').trim();
+            return {
+              title: placeName,
+              point: {
+                x: String(doc.x || ''),
+                y: String(doc.y || '')
+              },
+              address: {
+                road: roadAddr,
+                parcel: parcelAddr,
+                bldnm: placeName
+              }
+            };
+          }).filter(it => it.title && it.point.x && it.point.y);
+
+          const elapsedMs = Date.now() - startTime;
+          console.log(`[Proxy Done - Kakao Place Search] elapsed=${elapsedMs}ms items=${items.length}`);
+
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          if (items.length === 0) {
+            res.end(JSON.stringify({
+              response: {
+                status: 'NOT_FOUND',
+                result: { items: [] }
+              }
+            }));
+          } else {
+            res.end(JSON.stringify({
+              response: {
+                status: 'OK',
+                result: { items: items }
+              }
+            }));
+          }
+        } else {
+          // Kakao 주소 검색 (type === 'address')
+          const kakaoRes = await requestKakaoApi(
+            '/v2/local/search/address.json',
+            { query: searchKeyword, size: '15' },
+            kakaoApiKey
+          );
+
+          if (kakaoRes.statusCode !== 200) {
+            console.error(`[Proxy Error - Kakao Search Address] HTTP ${kakaoRes.statusCode}`);
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: `Kakao 주소 검색 API 오류 (HTTP ${kakaoRes.statusCode})`,
+              response: { status: 'ERROR', error: { text: 'KAKAO_API_ERROR', code: kakaoRes.statusCode } }
+            }));
+            return;
+          }
+
+          const docs = (kakaoRes.data && Array.isArray(kakaoRes.data.documents)) ? kakaoRes.data.documents : [];
+          let filteredDocs = docs;
+
+          if (searchCategory === 'ROAD') {
+            filteredDocs = docs.filter(doc => !!(doc.road_address && doc.road_address.address_name));
+          } else if (searchCategory === 'PARCEL') {
+            filteredDocs = docs.filter(doc => !!(doc.address && doc.address.address_name));
+          }
+
+          const items = filteredDocs.map(doc => {
+            const roadName = (doc.road_address && doc.road_address.address_name) ? doc.road_address.address_name.trim() : '';
+            const parcelName = (doc.address && doc.address.address_name) ? doc.address.address_name.trim() : '';
+            const bldName = (doc.road_address && doc.road_address.building_name) ? doc.road_address.building_name.trim() : '';
+            let title = '';
+            if (searchCategory === 'ROAD') {
+              title = bldName || roadName || (doc.address_name || '').trim();
+            } else if (searchCategory === 'PARCEL') {
+              title = parcelName || (doc.address_name || '').trim();
+            } else {
+              title = bldName || roadName || parcelName || (doc.address_name || '').trim();
+            }
+
+            return {
+              title: title,
+              point: {
+                x: String(doc.x || ''),
+                y: String(doc.y || '')
+              },
+              address: {
+                road: roadName,
+                parcel: parcelName,
+                bldnm: bldName
+              }
+            };
+          }).filter(it => it.title && it.point.x && it.point.y);
+
+          const elapsedMs = Date.now() - startTime;
+          console.log(`[Proxy Done - Kakao Address Search] category=${searchCategory} elapsed=${elapsedMs}ms items=${items.length}`);
+
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          if (items.length === 0) {
+            res.end(JSON.stringify({
+              response: {
+                status: 'NOT_FOUND',
+                result: { items: [] }
+              }
+            }));
+          } else {
+            res.end(JSON.stringify({
+              response: {
+                status: 'OK',
+                result: { items: items }
+              }
+            }));
+          }
+        }
+      } catch (err) {
+        const elapsedMs = Date.now() - startTime;
+        if (err.code === 'ETIMEDOUT') {
+          console.error(`[Proxy Timeout - Kakao Search] elapsed=${elapsedMs}ms`);
+          if (!res.headersSent) {
+            res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: '504 Gateway Timeout: Kakao 검색 서버 응답 시간 초과 (10초)',
+              response: { status: 'ERROR', error: { text: 'GATEWAY_TIMEOUT' } }
+            }));
+          }
+        } else {
+          console.error(`[Proxy Error - Kakao Search] elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`);
+          if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: '502 Bad Gateway: Kakao 검색 요청 실패',
+              response: { status: 'ERROR', error: { text: 'BAD_GATEWAY' } }
+            }));
+          }
+        }
       }
-    });
+    })();
     return;
   }
 
-  // 3. VWorld 좌표 -> 주소 역지오코딩 엔드포인트 (/api/reverse)
+  // 3. Kakao 좌표 -> 주소 역지오코딩 엔드포인트 (/api/reverse)
   if (parsedUrl.pathname === '/api/reverse') {
     const query = parsedUrl.query;
     const lat = parseFloat(query.lat || query.latitude);
     const lon = parseFloat(query.lon || query.lng || query.longitude);
 
-    if (isNaN(lat) || isNaN(lon)) {
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '400 Bad Request: lat, lon 좌표가 필요합니다.' }));
+      res.end(JSON.stringify({ error: '400 Bad Request: 유효한 lat, lon 좌표가 필요합니다.' }));
       return;
     }
 
-    const vworldApiKey = process.env.VWORLD_API_KEY;
-    const vworldDomain = process.env.VWORLD_DOMAIN || 'localhost';
-
-    if (!vworldApiKey) {
+    const kakaoApiKey = (process.env.KAKAO_REST_API_KEY || '').trim();
+    if (!kakaoApiKey) {
+      console.error('[Server Error] KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.');
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: '서버 환경변수(VWORLD_API_KEY)가 설정되지 않았습니다.' }));
+      res.end(JSON.stringify({
+        error: '서버 환경변수(KAKAO_REST_API_KEY)가 설정되지 않았습니다.',
+        response: { status: 'ERROR', error: { text: 'KAKAO_REST_API_KEY_NOT_CONFIGURED' } }
+      }));
       return;
     }
-
-    const targetParams = new URLSearchParams({
-      service: 'address',
-      request: 'getAddress',
-      version: '2.0',
-      crs: 'epsg:4326',
-      point: `${lon},${lat}`,
-      format: 'json',
-      type: 'both',
-      key: vworldApiKey.trim(),
-      domain: vworldDomain.trim()
-    });
-
-    const targetUrl = `https://api.vworld.kr/req/address?${targetParams.toString()}`;
-    console.log(`[Proxy] Reverse Geocode -> Lat: ${lat}, Lon: ${lon}`);
 
     const startTime = Date.now();
-    let timeoutTriggered = false;
+    console.log(`[Proxy] Kakao Reverse Geocode -> Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`);
 
-    const proxyReq = https.get(targetUrl, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'DroneSafetyCheck/1.0',
-        'Accept': 'application/json, application/geo+json, application/xml, text/xml, */*'
-      }
-    }, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, {
-        'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8'
-      });
-      proxyRes.pipe(res);
-    });
+    (async () => {
+      try {
+        const kakaoRes = await requestKakaoApi(
+          '/v2/local/geo/coord2address.json',
+          { x: String(lon), y: String(lat), input_coord: 'WGS84' },
+          kakaoApiKey
+        );
 
-    proxyReq.on('timeout', () => {
-      timeoutTriggered = true;
-      const elapsedMs = Date.now() - startTime;
-      console.error(`[Proxy Timeout - Reverse] elapsed=${elapsedMs}ms timeoutTriggered=${timeoutTriggered}`);
-      proxyReq.destroy();
-      if (!res.headersSent) {
-        res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: '504 Gateway Timeout: VWorld 주소 서버 응답 시간 초과 (10초)' }));
-      }
-    });
+        if (kakaoRes.statusCode !== 200) {
+          console.error(`[Proxy Error - Kakao Reverse] HTTP ${kakaoRes.statusCode}`);
+          res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            error: `Kakao 좌표 주소 변환 API 오류 (HTTP ${kakaoRes.statusCode})`,
+            response: { status: 'ERROR', error: { text: 'KAKAO_API_ERROR', code: kakaoRes.statusCode } }
+          }));
+          return;
+        }
 
-    proxyReq.on('error', (err) => {
-      const elapsedMs = Date.now() - startTime;
-      const cause = timeoutTriggered ? 'AFTER_LOCAL_TIMEOUT' : 'REMOTE_OR_NETWORK_ERROR';
-      console.error(
-        `[Proxy Error - Reverse] cause=${cause} timeoutTriggered=${timeoutTriggered} elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`
-      );
-      if (!res.headersSent) {
-        res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: '502 Bad Gateway: VWorld 주소 요청 실패' }));
+        const docs = (kakaoRes.data && Array.isArray(kakaoRes.data.documents)) ? kakaoRes.data.documents : [];
+        if (docs.length === 0) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            response: {
+              status: 'NOT_FOUND',
+              result: []
+            }
+          }));
+          return;
+        }
+
+        const doc = docs[0];
+        const roadObj = doc.road_address;
+        const parcelObj = doc.address;
+
+        const roadAddr = (roadObj && roadObj.address_name) ? roadObj.address_name.trim() : '';
+        const parcelAddr = (parcelObj && parcelObj.address_name) ? parcelObj.address_name.trim() : '';
+        const bldName = (roadObj && roadObj.building_name) ? roadObj.building_name.trim() : '';
+
+        let primaryText = '';
+        if (roadAddr && bldName) {
+          primaryText = `${roadAddr} (${bldName})`;
+        } else if (roadAddr) {
+          primaryText = roadAddr;
+        } else if (parcelAddr) {
+          primaryText = parcelAddr;
+        }
+
+        if (!primaryText) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            response: {
+              status: 'NOT_FOUND',
+              result: []
+            }
+          }));
+          return;
+        }
+
+        const elapsedMs = Date.now() - startTime;
+        console.log(`[Proxy Done - Kakao Reverse] elapsed=${elapsedMs}ms`);
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          response: {
+            status: 'OK',
+            result: [
+              {
+                text: primaryText,
+                road: roadAddr || null,
+                parcel: parcelAddr || null,
+                building: bldName || null,
+                zipCode: (roadObj && roadObj.zone_no) ? roadObj.zone_no : null
+              }
+            ]
+          }
+        }));
+      } catch (err) {
+        const elapsedMs = Date.now() - startTime;
+        if (err.code === 'ETIMEDOUT') {
+          console.error(`[Proxy Timeout - Kakao Reverse] elapsed=${elapsedMs}ms`);
+          if (!res.headersSent) {
+            res.writeHead(504, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: '504 Gateway Timeout: Kakao 주소 서버 응답 시간 초과 (10초)',
+              response: { status: 'ERROR', error: { text: 'GATEWAY_TIMEOUT' } }
+            }));
+          }
+        } else {
+          console.error(`[Proxy Error - Kakao Reverse] elapsed=${elapsedMs}ms code=${err.code || 'NONE'} message=${err.message}`);
+          if (!res.headersSent) {
+            res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              error: '502 Bad Gateway: Kakao 주소 변환 요청 실패',
+              response: { status: 'ERROR', error: { text: 'BAD_GATEWAY' } }
+            }));
+          }
+        }
       }
-    });
+    })();
     return;
   }
+
 
   // 4. 임시 아웃바운드 HTTPS 연결 비교 진단 엔드포인트 (GET /api/egress-diagnostics)
   if (parsedUrl.pathname === '/api/egress-diagnostics') {
@@ -772,10 +982,16 @@ function runEgressDiagnosticsIfEnabled() {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://0.0.0.0:${PORT}/`);
-  console.log(`[Server] VWorld proxy enabled at /api/wfs`);
-  console.log(`[Server] VWorld search proxy enabled at /api/search`);
+  console.log(`[Server] VWorld WFS proxy enabled at /api/wfs`);
+  console.log(`[Server] Kakao search proxy enabled at /api/search`);
+  console.log(`[Server] Kakao reverse geocode proxy enabled at /api/reverse`);
+  if (process.env.KAKAO_REST_API_KEY) {
+    console.log(`[Server] Kakao REST API Key: configured`);
+  } else {
+    console.warn(`[Server Warning] KAKAO_REST_API_KEY 환경변수가 설정되지 않았습니다.`);
+  }
   if (process.env.VWORLD_API_KEY) {
-    console.log(`[Server] VWorld API Key: configured`);
+    console.log(`[Server] VWorld WFS API Key: configured`);
   } else {
     console.warn(`[Server Warning] VWorld API Key가 설정되지 않았습니다.`);
   }

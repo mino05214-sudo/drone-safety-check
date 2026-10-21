@@ -708,7 +708,7 @@
       color: #1e40af;
     }
 
-    /* 기체 무게 확인 도움 안내 상자 */
+    /* 기체 무게 확인 도움 안내 상자 및 모바일 접기 아코디언 */
     .help-accordion {
       background: #f1f5f9;
       border-radius: 8px;
@@ -717,6 +717,37 @@
       color: #334155;
       line-height: 1.5;
       margin-top: 6px;
+    }
+    .permit-foldable {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .permit-foldable summary {
+      padding: 12px 14px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      user-select: none;
+      box-sizing: border-box;
+      background: #f8fafc;
+    }
+    .permit-foldable summary:hover {
+      background: #f1f5f9;
+    }
+    .permit-foldable[open] summary {
+      border-bottom: 1px solid #e2e8f0;
+      background: #f1f5f9;
+    }
+    .permit-foldable-content {
+      padding: 12px 14px;
     }
 
     /* 비행승인 / 항공촬영 검토 결과 아이템 */
@@ -1037,14 +1068,27 @@
           <div id="briefingReasonList" style="color: #334155;">
             현재 비행 예정 위치를 지정하면 기상, 공역, 체크리스트 종합 안전 분석이 시작됩니다.
           </div>
-          <!-- 비행 예정 위치 첫 동선 액션 버튼 -->
+          <!-- 비행 예정 위치 첫 동선 액션 버튼 (위치 미지정 시) -->
           <div id="homeLocationActionButtons" style="display: flex; gap: 6px; margin-top: 8px;">
-            <button class="btn-primary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 700;" onclick="fetchGpsOnHome()">
+            <button class="btn-primary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 700; min-height: 48px;" onclick="fetchGpsOnHome()">
               📍 현재 위치 사용 (GPS)
             </button>
-            <button class="btn-secondary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 600;" onclick="focusSearchOnPermit()">
+            <button class="btn-secondary" style="flex: 1; padding: 10px 8px; font-size: 13px; font-weight: 600; min-height: 48px;" onclick="focusSearchOnPermit()">
               🔍 장소 검색
             </button>
+          </div>
+
+          <!-- 위치 확인 후 다음 행동 안내 컨테이너 (위치 지정 시 노출) -->
+          <div id="homeNextActionContainer" style="display: none; margin-top: 10px;">
+            <button id="btnHomeNextAction" class="btn-primary" style="width: 100%; min-height: 48px; padding: 12px 14px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; box-shadow: 0 2px 6px rgba(37,99,235,0.25);" onclick="switchTab('permit')">
+              📝 내 드론 비행·촬영 준비 확인하기 <span style="font-size: 16px;">→</span>
+            </button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 0 4px; font-size: 11px; color: var(--muted);">
+              <span>※ 비행승인 대상 여부와 필요 서류를 확인합니다.</span>
+              <button type="button" onclick="focusSearchOnPermit()" style="background: none; border: none; padding: 2px 4px; font-size: 11px; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline;">
+                위치 변경 🔍
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1536,11 +1580,16 @@
                 </button>
               </div>
 
-              <!-- 관리자 문의용 내용 미리보기 -->
-              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
-                <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px;">❓ 시설/소유자 문의 시 권장 질문</div>
-                <div id="generalInquiryPreviewBox" style="font-size: 10.5px; color: var(--muted); background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.5; white-space: pre-line;"></div>
-              </div>
+              <!-- 관리자 문의용 내용 미리보기 (접기 UI 적용) -->
+              <details class="permit-foldable" style="margin-top: 10px; background: #ffffff;">
+                <summary style="background: #ffffff; padding: 10px 12px;">
+                  <span>❓ 시설/소유자 문의 시 권장 7대 질문 미리보기</span>
+                  <span style="font-size: 11px; color: var(--muted); font-weight: normal;">자세히 보기 ▼</span>
+                </summary>
+                <div class="permit-foldable-content" style="padding: 10px 12px; background: #fafafa;">
+                  <div id="generalInquiryPreviewBox" style="font-size: 10.5px; color: var(--muted); line-height: 1.5; white-space: pre-line;"></div>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -1580,14 +1629,19 @@
                 </button>
               </div>
 
-              <!-- 기관에 문의할 내용 자동 생성 및 복사 -->
-              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                  <span style="font-size: 12px; font-weight: 700;">❓ 기관에 문의할 내용 (7대 항목)</span>
-                  <button class="btn-secondary btn-sm" onclick="copyInquiryText()">📋 문의내용 복사</button>
+              <!-- 기관에 문의할 내용 자동 생성 및 복사 (접기 UI 적용) -->
+              <details class="permit-foldable" style="margin-top: 10px; background: #ffffff;">
+                <summary style="background: #ffffff; padding: 10px 12px;">
+                  <span style="font-size: 12px; font-weight: 700;">❓ 기관에 문의할 내용 (7대 항목) 미리보기</span>
+                  <span style="font-size: 11px; color: var(--muted); font-weight: normal;">자세히 보기 ▼</span>
+                </summary>
+                <div class="permit-foldable-content" style="padding: 10px 12px; background: #fafafa;">
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                    <button type="button" class="btn-secondary btn-sm" onclick="copyInquiryText()">📋 문의내용 복사</button>
+                  </div>
+                  <div id="inquiryPreviewBox" style="font-size: 11px; color: var(--muted); background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.5; white-space: pre-line;"></div>
                 </div>
-                <div id="inquiryPreviewBox" style="font-size: 11px; color: var(--muted); background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0; line-height: 1.5; white-space: pre-line;"></div>
-              </div>
+              </details>
             </div>
 
             <!-- 준비서류 목록 -->
@@ -1784,71 +1838,80 @@
           </div>
         </details>
 
-        <!-- 4. 조종자 증명 기준 자동 분류 안내 (항공안전법 제125조 및 시행규칙 제306조제4항) -->
-        <div style="margin-top: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-size: 12px; font-weight: 700; color: var(--text);">📋 조종자 증명 기준 자동 분류 (항공안전법 제125조 및 시행규칙 제306조제4항)</span>
-            <span style="font-size: 10.5px; color: var(--muted);">MTOW 입력 시 자동 판정</span>
+        <!-- 4. 조종자 증명 기준 자동 분류 및 법령 안내 (모바일 접기 아코디언) -->
+        <details class="permit-foldable" id="foldablePilotClasses">
+          <summary>
+            <span>📋 조종자 증명 1~4종 기준 및 법령 상세 안내</span>
+            <span style="font-size: 11px; color: var(--muted); font-weight: normal;">자세히 보기 ▼</span>
+          </summary>
+          <div class="permit-foldable-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 11.5px; font-weight: 700; color: var(--text);">항공안전법 제125조 및 시행규칙 제306조제4항</span>
+              <span style="font-size: 10.5px; color: var(--muted);">MTOW 입력 시 자동 하이라이트</span>
+            </div>
+            <div class="class-grid" style="margin-top: 0;">
+              <div id="classCard1" class="class-card">
+                <div class="class-card-header">
+                  <span>1종</span>
+                  <span class="class-card-badge">25kg 초과</span>
+                </div>
+                <div class="class-card-desc">25kg 초과 ~ 자체중량 150kg 이하 (항공안전법 시행규칙 제306조제4항제1호. 비행경력 20시간 + 학과(필기)시험 + 실기시험 합격 필요. 안전성인증 및 지방항공청 비행승인 필수 대상)</div>
+              </div>
+              <div id="classCard2" class="class-card">
+                <div class="class-card-header">
+                  <span>2종</span>
+                  <span class="class-card-badge">7kg 초과 ~ 25kg 이하</span>
+                </div>
+                <div class="class-card-desc">7kg 초과 ~ 25kg 이하 (항공안전법 시행규칙 제306조제4항제2호. 비행경력 10시간 + 학과(필기)시험 + 약식 실기시험 합격 필요. 초경량비행장치 기체신고 의무 대상)</div>
+              </div>
+              <div id="classCard3" class="class-card">
+                <div class="class-card-header">
+                  <span>3종</span>
+                  <span class="class-card-badge">2kg 초과 ~ 7kg 이하</span>
+                </div>
+                <div class="class-card-desc">2kg 초과 ~ 7kg 이하 (항공안전법 시행규칙 제306조제4항제3호. 비행경력 6시간 + 학과(필기)시험 합격 필요. 실기시험 없음. 초경량비행장치 기체신고 의무 대상)</div>
+              </div>
+              <div id="classCard4" class="class-card">
+                <div class="class-card-header">
+                  <span>4종</span>
+                  <span class="class-card-badge">250g 초과 ~ 2kg 이하</span>
+                </div>
+                <div class="class-card-desc">250g 초과 ~ 2kg 이하 (항공안전법 시행규칙 제306조제4항제4호. 한국교통안전공단(TS) 배움터 온라인 교육 6시간 이수 증명 필요. 시험 없음. 비사업용 기체신고 면제 대상 여부 확인)</div>
+              </div>
+              <div id="classCardNone" class="class-card">
+                <div class="class-card-header">
+                  <span>250g 이하</span>
+                  <span class="class-card-badge">조종자 증명 제외</span>
+                </div>
+                <div class="class-card-desc">최대이륙중량 250g 이하로 1~4종 조종자 증명 취득 대상에서 제외됩니다. (항공안전법 제125조제1항 단서 및 시행규칙 제306조제1항제4호가목. 단, 비행승인·촬영허가 및 안전수칙은 무게와 무관하게 동일 준수)</div>
+              </div>
+            </div>
           </div>
-          <div class="class-grid">
-            <div id="classCard1" class="class-card">
-              <div class="class-card-header">
-                <span>1종</span>
-                <span class="class-card-badge">25kg 초과</span>
-              </div>
-              <div class="class-card-desc">25kg 초과 ~ 자체중량 150kg 이하 (항공안전법 시행규칙 제306조제4항제1호. 비행경력 20시간 + 학과(필기)시험 + 실기시험 합격 필요. 안전성인증 및 지방항공청 비행승인 필수 대상)</div>
-            </div>
-            <div id="classCard2" class="class-card">
-              <div class="class-card-header">
-                <span>2종</span>
-                <span class="class-card-badge">7kg 초과 ~ 25kg 이하</span>
-              </div>
-              <div class="class-card-desc">7kg 초과 ~ 25kg 이하 (항공안전법 시행규칙 제306조제4항제2호. 비행경력 10시간 + 학과(필기)시험 + 약식 실기시험 합격 필요. 초경량비행장치 기체신고 의무 대상)</div>
-            </div>
-            <div id="classCard3" class="class-card">
-              <div class="class-card-header">
-                <span>3종</span>
-                <span class="class-card-badge">2kg 초과 ~ 7kg 이하</span>
-              </div>
-              <div class="class-card-desc">2kg 초과 ~ 7kg 이하 (항공안전법 시행규칙 제306조제4항제3호. 비행경력 6시간 + 학과(필기)시험 합격 필요. 실기시험 없음. 초경량비행장치 기체신고 의무 대상)</div>
-            </div>
-            <div id="classCard4" class="class-card">
-              <div class="class-card-header">
-                <span>4종</span>
-                <span class="class-card-badge">250g 초과 ~ 2kg 이하</span>
-              </div>
-              <div class="class-card-desc">250g 초과 ~ 2kg 이하 (항공안전법 시행규칙 제306조제4항제4호. 한국교통안전공단(TS) 배움터 온라인 교육 6시간 이수 증명 필요. 시험 없음. 비사업용 기체신고 면제 대상 여부 확인)</div>
-            </div>
-            <div id="classCardNone" class="class-card">
-              <div class="class-card-header">
-                <span>250g 이하</span>
-                <span class="class-card-badge">조종자 증명 제외</span>
-              </div>
-              <div class="class-card-desc">최대이륙중량 250g 이하로 1~4종 조종자 증명 취득 대상에서 제외됩니다. (항공안전법 제125조제1항 단서 및 시행규칙 제306조제1항제4호가목. 단, 비행승인·촬영허가 및 안전수칙은 무게와 무관하게 동일 준수)</div>
-            </div>
-          </div>
+        </details>
 
-          <!-- 3대 행정 제도 명확한 구분 안내 박스 (STEP 3.31) -->
-          <div style="margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <div style="font-size: 11.5px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
-              ⚖️ 조종자 증명(자격) vs 기체신고 vs 비행승인·촬영허가 구분 기준
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; line-height: 1.5; color: #475569;">
+        <!-- 3대 행정 제도 명확한 구분 안내 박스 (모바일 접기 아코디언, STEP 3.31/3.34) -->
+        <details class="permit-foldable" id="foldableAdminSystems">
+          <summary>
+            <span>⚖️ 조종자 증명(자격) vs 기체신고 vs 비행승인·촬영허가 구분 기준</span>
+            <span style="font-size: 11px; color: var(--muted); font-weight: normal;">자세히 보기 ▼</span>
+          </summary>
+          <div class="permit-foldable-content">
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 11px; line-height: 1.55; color: #475569;">
               <div>
                 <strong style="color: #0f172a;">1. 조종자 증명 (사람의 자격 요건):</strong><br>
                 항공안전법 제125조 및 시행규칙 제306조에 따른 조종 자격입니다. 최대이륙중량 250g 이하는 자격 취득 대상에서 제외되며(시행규칙 제306조제1항제4호가목), 250g 초과 무인동력비행장치는 최대이륙중량에 따라 1~4종으로 구분됩니다(시행규칙 제306조제4항). 4종은 TS 배움터 온라인 교육(6시간), 3종 이상은 비행경력 및 시험 합격이 필요합니다.
               </div>
-              <div>
+              <div style="padding-top: 6px; border-top: 1px dashed #e2e8f0;">
                 <strong style="color: #0f172a;">2. 기체 신고 (기체의 등록 의무):</strong><br>
                 비사업용 2kg 초과 기체 및 사업용 모든 기체는 드론원스톱에 기체를 신고해야 합니다. (비사업용 2kg 이하 기체는 신고 의무가 면제됩니다)
               </div>
-              <div>
+              <div style="padding-top: 6px; border-top: 1px dashed #e2e8f0;">
                 <strong style="color: #0f172a;">3. 비행승인 및 항공촬영 허가 (운항별 사전 허가):</strong><br>
                 조종자 자격이나 기체신고 여부와 무관하게, 비행금지구역·비행제한구역·관제권 또는 150m 이상 비행 시 사전 비행승인이 필수이며, 카메라가 부착된 드론으로 촬영 시 국방부 항공촬영 허가를 별도로 받아야 합니다.
               </div>
             </div>
           </div>
-        </div>
+        </details>
 
         <!-- 예정 비행 고도 -->
         <div class="form-group">
@@ -3533,6 +3596,12 @@
         }
       }
 
+      // 1-1. 위치 지정 여부에 따른 액션 버튼 전환 (STEP 3.33)
+      const homeLocButtons = document.getElementById("homeLocationActionButtons");
+      const homeNextAction = document.getElementById("homeNextActionContainer");
+      if (homeLocButtons) homeLocButtons.style.display = hasLoc ? "none" : "flex";
+      if (homeNextAction) homeNextAction.style.display = hasLoc ? "block" : "none";
+
       // 2) 기상 뱃지 및 카드 동기화 (참고용 기상 상태 안내)
       if (badgeWeather) {
         if (!weatherState.loaded) {
@@ -3574,13 +3643,13 @@
         }
       }
 
-      // 3) 기체 뱃지 및 카드 동기화
+      // 3) 기체 뱃지 및 카드 동기화 (STEP 3.33: 미입력 시 확인 필요 강조)
       const currentDrone = (typeof droneProfile !== "undefined") ? droneProfile : null;
       if (badgeDrone) {
         if (!currentDrone || !currentDrone.model) {
-          badgeDrone.innerText = "🚁 기체 미지정";
-          badgeDrone.style.background = "rgba(0,0,0,0.06)";
-          badgeDrone.style.color = "var(--muted)";
+          badgeDrone.innerText = "🚁 기체 미입력 (확인 필요)";
+          badgeDrone.style.background = "rgba(245, 158, 11, 0.15)";
+          badgeDrone.style.color = "#92400e";
         } else if (currentDrone.verificationStatus === "verified") {
           badgeDrone.innerText = "✅ 기체 공식확인";
           badgeDrone.style.background = "rgba(16, 185, 129, 0.15)";
@@ -3782,11 +3851,14 @@
         }
       }
 
-      // 5. 종합 브리핑 상태 구성 (Section 36: 단정적 "안전" 금지, 근거 중심 안내)
+      // 5. 종합 브리핑 상태 구성 (Section 36: 단정적 "안전" 금지, 근거 중심 안내 / STEP 3.33)
       let overallLevel = "safe";
       let overallTitle = "비행 전 준비 상태 확인";
       let overallDesc = "";
       let overallIcon = "🟢";
+
+      const hasDrone = Boolean(currentDrone && currentDrone.model);
+      const hasConfirmedMtow = Boolean(hasDrone && currentDrone.maxTakeoffWeightKg !== null);
 
       const chkGuideText = chk.complete 
         ? `체크리스트(${chk.completed}/${chk.total}) 완료`
@@ -3811,7 +3883,18 @@
           overallDesc = `기상 주의 상태입니다. (풍속: ${weatherState.wind || '-'}m/s) 기체 제조사 한계와 실제 비행 현장 상황을 함께 확인하세요. · ${chkGuideText}.${accNotice}`;
         }
       } else {
-        if (!chk.complete) {
+        // 공역 및 기상 모두 safe인 경우 기체 등록 및 체크리스트 검증 (STEP 3.33)
+        if (!hasDrone) {
+          overallLevel = "warning";
+          overallIcon = "🟡";
+          overallTitle = "⚠️ 기체 정보 확인 필요";
+          overallDesc = `주요 제한공역은 미검출되었으나, 기체 정보(모델·중량)가 등록되지 않았습니다. 공역 확인 결과와 별개로, 기체 정보와 필요한 승인 여부를 확인해야 합니다.${accNotice}`;
+        } else if (!hasConfirmedMtow) {
+          overallLevel = "warning";
+          overallIcon = "🟡";
+          overallTitle = "⚠️ 기체 중량(MTOW) 확인 필요";
+          overallDesc = `주요 제한공역은 미검출되었으나, ${currentDrone.model}의 법령상 최대이륙중량이 확인되지 않아 조종자 증명 기준을 판정할 수 없습니다. 공역 확인 결과와 별개로 기체 사양을 확인하세요.${accNotice}`;
+        } else if (!chk.complete) {
           overallLevel = "warning";
           overallIcon = "🟡";
           overallTitle = "⚠️ 비행 전 확인 필요";
@@ -3819,7 +3902,7 @@
         } else {
           overallLevel = "safe";
           overallIcon = "🟢";
-          overallTitle = "✅ 주요 제한공역 미검출";
+          overallTitle = "✅ 주요 제한공역 미검출 (비행 준비 단계)";
           overallDesc = `현재 확인된 데이터를 기준으로 비행 준비에 필요한 항목을 표시했습니다. 최종 비행·촬영 가능 여부와 승인 대상 여부는 공식 기관 및 드론원스톱에서 확인하세요.${accNotice}`;
         }
       }
@@ -4093,33 +4176,83 @@
     const VERIFIED_DRONE_MODELS = [
       {
         manufacturer: "DJI",
-        model: "DJI Mini 4 Pro",
-        aliases: ["Mini 4 Pro", "Mini4Pro", "Mini 4", "Mini4", "미니4", "미니 4", "미니4프로", "미니 4 프로", "DJI 미니 4", "매빅 미니 4"],
+        model: "DJI Neo",
+        aliases: ["Neo", "네오", "DJI 네오", "네오 드론", "DJI Neo 드론", "브이로그 드론"],
         aircraftWeightKg: null,
-        takeoffWeightKg: null, // 공식 기술사양에 '< 249 g'만 명시되어 false precision 방지를 위해 null 처리
-        maxTakeoffWeightKg: null, // 공식 기술사양에 법령상 '최대이륙중량(MTOW)' 별도 미명시
+        takeoffWeightKg: null, // 공식 기술사양 원문 '약 135 g' 근사치 표기로 false precision 방지 위해 null 처리
+        maxTakeoffWeightKg: 0.135, // 공식 사용자 매뉴얼(DN1A0626) 제원상 'Maximum Take-Off Mass (MTOM): 135 g' 명시 확인
         selfWeightKg: null,
-        sourceFieldLabel: "Takeoff Weight",
-        sourceValueText: "< 249 g",
-        sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, microSD 카드 포함 기준",
-        weightDescription: "표준 구성의 공식 표기 중량은 249g 미만(< 249 g)이며, 특정 배터리 구성에서는 249g을 초과할 수 있음.",
+        batteryConfig: "DJI Neo 인텔리전트 플라이트 배터리 (1435 mAh, 약 45g)",
+        sourceFieldLabel: "Maximum Take-Off Mass (MTOM)",
+        sourceValueText: "135 g (공식 스펙: 이륙 중량 약 135 g)",
+        sourceCondition: "배터리, 프로펠러, 프로펠러 가드 포함 기준",
+        weightDescription: "DJI 공식 사용자 매뉴얼상 Maximum Take-Off Mass(MTOM) 135g 명시 확인됨. 최대이륙중량 250g 이하로 항공안전법상 1~4종 조종자 증명 취득 대상에서 제외됩니다. (단, 비행승인 및 항공촬영 허가는 공역·시설 규정에 따라 동일 적용)",
         sourceType: "manufacturer",
-        sourceName: "DJI 공식 기술 사양 (Specs)",
-        sourceUrl: "https://www.dji.com/kr/mini-4-pro/specs",
-        verifiedAt: "",
-        lastReviewedAt: "2026-09-17",
-        verificationStatus: "needs_review",
+        sourceName: "DJI Neo 공식 사용자 매뉴얼 (User Manual) 및 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/neo/specs",
+        verifiedAt: "2026-10-19",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "verified",
+        hasConditionalWeight: false,
+        conditionalNotice: "공식 제원상 MTOM은 135g(250g 이하)이나 추가 장비 부착 시 중량이 증가할 수 있으며, 비행승인·촬영허가는 공역 규정에 따라 별도 확인해야 합니다."
+      },
+      {
+        manufacturer: "DJI",
+        model: "DJI Mini 4K",
+        aliases: ["Mini 4K", "Mini4K", "미니 4K", "미니4K", "DJI 미니 4K", "DJI 미니4K"],
+        aircraftWeightKg: null,
+        takeoffWeightKg: 0.246,
+        maxTakeoffWeightKg: 0.246, // 공식 사용자 매뉴얼(MT2SD) 제원상 'Maximum Take-Off Mass (MTOM): 246 g' 명시 확인
+        selfWeightKg: null,
+        batteryConfig: "DJI Mini 2 시리즈 인텔리전트 플라이트 배터리 (2250 mAh, 약 82.5g)",
+        sourceFieldLabel: "Maximum Take-Off Mass (MTOM)",
+        sourceValueText: "246 g",
+        sourceCondition: "표준 배터리, 프로펠러 및 microSD 카드 포함 기준",
+        weightDescription: "DJI Mini 4K 공식 사용자 매뉴얼 제원상 'Maximum Take-Off Mass (MTOM): 246 g' 명시 확인됨. 최대이륙중량 250g 이하로 1~4종 조종자 증명 대상 제외 범위에 해당함.",
+        sourceType: "manufacturer",
+        sourceName: "DJI Mini 4K 공식 사용자 매뉴얼 (User Manual v1.0) 및 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/mini-4k/specs",
+        verifiedAt: "2026-10-19",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "verified",
         hasConditionalWeight: true,
-        conditionalNotice: "⚠️ 구성에 따라 중량 기준이 달라질 수 있습니다. (표준 배터리는 <249g이나 대용량 플러스 배터리 장착 시 250g을 초과하여 4종 자격 및 기체 신고 대상이 될 수 있습니다)"
+        conditionalNotice: "공식 제원상 최대이륙중량은 246g이나 프로펠러 가드 등 추가 액세서리 장착 시 250g을 초과할 수 있으므로 장착 장비를 확인하세요."
+      },
+      {
+        manufacturer: "DJI",
+        model: "DJI Mini 3",
+        aliases: ["Mini 3", "Mini3", "미니3", "미니 3", "DJI 미니 3", "미니3 일반", "미니 3 기본"],
+        aircraftWeightKg: null,
+        takeoffWeightKg: 0.248,
+        maxTakeoffWeightKg: 0.248, // 공식 매뉴얼(MT3PD) 제원상 표준 구성 MTOM 248 g 명시 확인됨
+        selfWeightKg: null,
+        batteryConfig: "표준 인텔리전트 플라이트 배터리 (2453 mAh, 약 80.5g)",
+        sourceFieldLabel: "Maximum Take-Off Mass (MTOM)",
+        sourceValueText: "표준 배터리 MTOM 248 g (플러스 배터리 장착 시 약 290 g)",
+        sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, microSD 카드 포함 기준",
+        weightDescription: "DJI 공식 매뉴얼상 표준 배터리 장착 시 MTOM 248g(250g 이하)으로 조종자 증명 대상 제외 범위이나, 대용량 플러스 배터리 장착 시 약 290g으로 250g을 초과하여 4종 조종자 증명 및 기체 신고 대상이 됩니다.",
+        sourceType: "manufacturer",
+        sourceName: "DJI Mini 3 공식 사용자 매뉴얼 및 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/mini-3/specs",
+        verifiedAt: "2026-10-19",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "verified",
+        hasConditionalWeight: true,
+        conditionalNotice: "⚠️ 배터리 구성에 따라 중량 및 자격 기준이 달라집니다: 표준 배터리 장착 시 248g(자격 제외 대상)이나, 인텔리전트 플라이트 배터리 플러스 장착 시 약 290g으로 4종 자격(온라인 교육 6시간) 및 기체 신고 대상이 됩니다.",
+        maxTakeoffWeightConditions: [
+          { condition: "standard", label: "표준 배터리 (Intelligent Flight Battery)", maxTakeoffWeightKg: 0.248 },
+          { condition: "plus", label: "인텔리전트 플라이트 배터리 플러스 (Plus)", maxTakeoffWeightKg: 0.290 }
+        ]
       },
       {
         manufacturer: "DJI",
         model: "DJI Mini 3 Pro",
-        aliases: ["Mini 3 Pro", "Mini3Pro", "Mini 3", "Mini3", "미니3", "미니 3", "미니3프로", "미니 3 프로", "DJI 미니 3"],
+        aliases: ["Mini 3 Pro", "Mini3Pro", "미니3프로", "미니 3 프로", "DJI 미니 3 프로", "미니3P", "Mini 3P"],
         aircraftWeightKg: null,
         takeoffWeightKg: null, // 공식 기술사양에 '< 249 g'만 명시되어 false precision 방지를 위해 null 처리
         maxTakeoffWeightKg: null, // 공식 기술사양에 '최대이륙중량(MTOW)' 별도 미명시
         selfWeightKg: null,
+        batteryConfig: "표준 인텔리전트 플라이트 배터리 (대용량 플러스 배터리 옵션 있음)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "< 249 g",
         sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, microSD 카드 포함 기준",
@@ -4128,10 +4261,76 @@
         sourceName: "DJI 공식 기술 사양 (Specs)",
         sourceUrl: "https://www.dji.com/kr/mini-3-pro/specs",
         verifiedAt: "",
-        lastReviewedAt: "2026-09-17",
+        lastReviewedAt: "2026-10-19",
         verificationStatus: "needs_review",
         hasConditionalWeight: true,
         conditionalNotice: "⚠️ 구성에 따라 중량 기준이 달라질 수 있습니다. (표준 배터리는 <249g이나 플러스 배터리 장착 시 약 290g으로 250g을 초과하여 4종 자격 필요)"
+      },
+      {
+        manufacturer: "DJI",
+        model: "DJI Mini 4 Pro",
+        aliases: ["Mini 4 Pro", "Mini4Pro", "Mini 4", "Mini4", "미니4", "미니 4", "미니4프로", "미니 4 프로", "DJI 미니 4", "매빅 미니 4"],
+        aircraftWeightKg: null,
+        takeoffWeightKg: null, // 공식 기술사양에 '< 249 g'만 명시되어 false precision 방지를 위해 null 처리
+        maxTakeoffWeightKg: null, // 공식 기술사양에 법령상 '최대이륙중량(MTOW)' 별도 미명시
+        selfWeightKg: null,
+        batteryConfig: "표준 인텔리전트 플라이트 배터리 (대용량 플러스 배터리 옵션 있음)",
+        sourceFieldLabel: "Takeoff Weight",
+        sourceValueText: "< 249 g",
+        sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, microSD 카드 포함 기준",
+        weightDescription: "표준 구성의 공식 표기 중량은 249g 미만(< 249 g)이며, 특정 배터리 구성에서는 249g을 초과할 수 있음.",
+        sourceType: "manufacturer",
+        sourceName: "DJI 공식 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/mini-4-pro/specs",
+        verifiedAt: "",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "needs_review",
+        hasConditionalWeight: true,
+        conditionalNotice: "⚠️ 구성에 따라 중량 기준이 달라질 수 있습니다. (표준 배터리는 <249g이나 대용량 플러스 배터리 장착 시 250g을 초과하여 4종 자격 및 기체 신고 대상이 될 수 있습니다)"
+      },
+      {
+        manufacturer: "DJI",
+        model: "DJI Mini 5 Pro",
+        aliases: ["Mini 5 Pro", "Mini5Pro", "Mini 5", "Mini5", "미니5", "미니 5", "미니5프로", "미니 5 프로", "DJI 미니 5", "매빅 미니 5"],
+        aircraftWeightKg: null,
+        takeoffWeightKg: null, // 공식 제원상 '249.9 g ± 4 g' 오차 범위 및 플러스 배터리 장착 시 250g 초과로 null 처리
+        maxTakeoffWeightKg: null, // 공식 기술사양에 법령상 '최대이륙중량(MTOW)' 별도 미명시
+        selfWeightKg: null,
+        batteryConfig: "표준 인텔리전트 플라이트 배터리 (대용량 플러스 배터리 옵션 있음)",
+        sourceFieldLabel: "Takeoff Weight",
+        sourceValueText: "249.9 g (± 4 g)",
+        sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, microSD 카드 포함 기준",
+        weightDescription: "제조사 공식 제원상 표준 배터리 이륙중량이 약 249.9g(±4g)으로 기재되어 있으나 부품 편차에 따라 250g을 초과할 수 있으며, 플러스 배터리 장착 시 명백히 250g을 초과하므로 실제 기체 중량 및 법령상 MTOW 확인이 필요합니다.",
+        sourceType: "manufacturer",
+        sourceName: "DJI 공식 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/mini-5-pro/specs",
+        verifiedAt: "",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "needs_review",
+        hasConditionalWeight: true,
+        conditionalNotice: "⚠️ 표준 배터리 표기 이륙중량은 249.9g(±4g)이나 제작 편차 또는 대용량 플러스 배터리 장착 시 250g을 초과하여 4종 조종자 증명 및 기체 신고 대상이 될 수 있습니다."
+      },
+      {
+        manufacturer: "DJI",
+        model: "DJI Flip",
+        aliases: ["Flip", "플립", "DJI 플립", "플립 드론", "DJI Flip 드론"],
+        aircraftWeightKg: null,
+        takeoffWeightKg: null, // 공식 기술사양에 '< 249 g'만 명시되어 false precision 방지를 위해 null 처리
+        maxTakeoffWeightKg: null, // 공식 기술사양에 법령상 '최대이륙중량(MTOW)' 별도 미명시
+        selfWeightKg: null,
+        batteryConfig: "DJI Flip 인텔리전트 플라이트 배터리",
+        sourceFieldLabel: "Takeoff Weight",
+        sourceValueText: "< 249 g",
+        sourceCondition: "표준 인텔리전트 플라이트 배터리, 프로펠러, 보호 가드 포함 기준",
+        weightDescription: "제조사 공식 기술사양에 표준 이륙 중량이 249g 미만(< 249 g)으로 표기되어 있으나 법령상 최대이륙중량(MTOW)이 별도 기재되지 않았으며, 셀룰러 동글 등 추가 장비 장착 시 중량이 250g을 초과할 수 있어 확인이 필요합니다.",
+        sourceType: "manufacturer",
+        sourceName: "DJI 공식 기술 사양 (Specs)",
+        sourceUrl: "https://www.dji.com/kr/flip/specs",
+        verifiedAt: "",
+        lastReviewedAt: "2026-10-19",
+        verificationStatus: "needs_review",
+        hasConditionalWeight: true,
+        conditionalNotice: "⚠️ 공식 표기 이륙중량은 <249g이나 법령상 최대이륙중량이 별도 기재되지 않았고, 셀룰러 동글(장착 시 약 295g) 등 액세서리 구성에 따라 250g을 초과하여 4종 자격이 필요할 수 있습니다."
       },
       {
         manufacturer: "DJI",
@@ -4141,6 +4340,7 @@
         takeoffWeightKg: 0.246,
         maxTakeoffWeightKg: 0.246, // 공식 매뉴얼 제원상 'Maximum Take-Off Weight: 246 g' 명시 확인
         selfWeightKg: null,
+        batteryConfig: "DJI Mini 2 시리즈 인텔리전트 플라이트 배터리 (2250 mAh, 약 82.5g)",
         sourceFieldLabel: "Maximum Take-Off Weight",
         sourceValueText: "246 g",
         sourceCondition: "배터리, 프로펠러 및 microSD 카드 포함 기준",
@@ -4162,6 +4362,7 @@
         takeoffWeightKg: 0.720,
         maxTakeoffWeightKg: null, // 공식 제원에 'Takeoff Weight: 720g'만 명시, MTOW 별도 미명시
         selfWeightKg: null,
+        batteryConfig: "DJI Air 3 인텔리전트 플라이트 배터리 (4241 mAh, 약 267g)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "720 g",
         sourceCondition: "프로펠러 및 배터리 포함 기준",
@@ -4183,6 +4384,7 @@
         takeoffWeightKg: 0.595,
         maxTakeoffWeightKg: null, // 공식 기술사양에 'Takeoff Weight: 595g'만 명시, MTOW 별도 미제공
         selfWeightKg: null,
+        batteryConfig: "DJI Air 2S 인텔리전트 플라이트 배터리 (3500 mAh, 약 198g)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "595 g",
         sourceCondition: "프로펠러 및 배터리 포함 기준",
@@ -4204,6 +4406,7 @@
         takeoffWeightKg: null, // Cine 모델(963g) 상이하므로 false precision 방지 위해 null 처리
         maxTakeoffWeightKg: null, // 공식 제원에 별도 MTOW 미제공
         selfWeightKg: null,
+        batteryConfig: "DJI Mavic 3 인텔리전트 플라이트 배터리 (5000 mAh, 약 335.5g)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "958 g (Cine 모델 963 g)",
         sourceCondition: "프로펠러, 배터리 및 microSD 카드 포함 기준",
@@ -4225,6 +4428,7 @@
         takeoffWeightKg: null, // '약 377 g' 근사치이므로 false precision 방지 위해 null 처리
         maxTakeoffWeightKg: null, // 공식 제원에 별도 MTOW 미제공
         selfWeightKg: null,
+        batteryConfig: "DJI Avata 2 인텔리전트 플라이트 배터리 (2150 mAh, 약 145g)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "약 377 g",
         sourceCondition: "프로펠러 및 배터리 포함 기준",
@@ -4246,6 +4450,7 @@
         takeoffWeightKg: null,
         maxTakeoffWeightKg: 4.310, // 공식 제원에 'Max Takeoff Weight: Approx. 4,310 g' 명시 확인
         selfWeightKg: 3.995,
+        batteryConfig: "TB51 듀얼 인텔리전트 배터리 (2개 1세트)",
         sourceFieldLabel: "Weight / Max Takeoff Weight",
         sourceValueText: "Weight: Approx. 3,995 g / Max Takeoff Weight: Approx. 4,310 g",
         sourceCondition: "짐벌 카메라, 렌즈 1개, 배터리 2개, 프로펠러 4개, microSD 카드 포함 기준",
@@ -4267,6 +4472,7 @@
         takeoffWeightKg: null,
         maxTakeoffWeightKg: 0.866, // 공식 제원에 Aircraft Weight: 835g, Maximum Takeoff Weight (MTOW): 866g 분리 명시 확인
         selfWeightKg: null,
+        batteryConfig: "Autel EVO Lite 표준 배터리 (6175 mAh)",
         sourceFieldLabel: "Aircraft Weight / Maximum takeoff weight",
         sourceValueText: "Aircraft Weight: 835 g / MTOW: 866 g",
         sourceCondition: "배터리, 프로펠러, 짐벌 커버 포함 기준",
@@ -4288,6 +4494,7 @@
         takeoffWeightKg: 0.249,
         maxTakeoffWeightKg: null, // 공식 기술사양에 'Takeoff Weight: 249 g'만 명시, MTOW 별도 미제공
         selfWeightKg: null,
+        batteryConfig: "Autel EVO Nano 표준 배터리 (2250 mAh)",
         sourceFieldLabel: "Takeoff Weight",
         sourceValueText: "249 g",
         sourceCondition: "배터리, 프로펠러 및 microSD 카드 포함 기준",
@@ -4309,6 +4516,7 @@
         takeoffWeightKg: null,
         maxTakeoffWeightKg: null, // 살포(90kg)/분제(101kg) 조건별 상이하므로 단일 숫자로 단순화하지 않고 verified_conditional 처리
         selfWeightKg: 38.0, // 배터리 제외 자체중량
+        batteryConfig: "DB1560 인텔리전트 플라이트 배터리 (30,000 mAh, 약 12kg)",
         sourceFieldLabel: "Total Weight / Max Takeoff Weight for spraying & spreading",
         sourceValueText: "배터리 제외 38kg, 배터리 포함 50kg / 살포 MTOW 90kg, 분제 MTOW 101kg",
         sourceCondition: "해수면 기준 운용 제원",
@@ -4334,6 +4542,7 @@
         takeoffWeightKg: null,
         maxTakeoffWeightKg: null,
         selfWeightKg: null,
+        batteryConfig: "4S~6S LiPo 배터리 (자체 장착)",
         sourceFieldLabel: "미확인 (개별 조립)",
         sourceValueText: "미확인",
         sourceCondition: "조립 부품 및 배터리 용량에 따라 상이",
